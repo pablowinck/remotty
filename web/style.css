@@ -49,7 +49,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
 #app {
   display: grid;
   grid-template: "tabs stage" 1fr "tabs keys" auto / var(--tab-w) 1fr;
-  height: 100dvh;
+  height: var(--app-h, 100dvh); /* --app-h: the visual viewport, see app.js */
 }
 
 #tabs { grid-area: tabs; display: flex; flex-direction: column; border-right: 1px solid var(--line); min-height: 0; }
@@ -149,6 +149,13 @@ kbd {
      and thumb-sized. Order puts the keys an agent prompt needs most on top. */
   #keys { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: .25rem; overflow: visible; }
   #keys button { min-width: 0; min-height: 2.5rem; padding: .4rem 0; }
+}
+
+/* iOS zooms the page into any focused field with text under 16px, and stays
+   zoomed: tapping the finder or the terminal blew the layout up. Last in the
+   file, so the finder's own `font: inherit` does not win it back. */
+@media (pointer: coarse) {
+  #find, .card input, .xterm .xterm-helper-textarea { font-size: 16px; }
 }
 
 /* Files dragged over the page: say where they go. */

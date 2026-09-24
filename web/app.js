@@ -2,10 +2,27 @@
 import { api, Unauthorized } from './features/api.js';
 import { showPairing } from './features/access.js';
 import { createSessions } from './features/sessions.js';
-import { createTerminal, shortcutOf } from './features/terminal.js';
+import { createTerminal, keyLabel, shortcutOf } from './features/terminal.js';
 
 const status = document.getElementById('status');
 const setStatus = (text) => (status.textContent = text);
+
+// iOS Safari ignores interactive-widget=resizes-content: the soft keyboard
+// covers the page instead of shrinking it, hiding the prompt and the key bar.
+// Only the visual viewport shrinks, so the app is sized to it. Elsewhere its
+// height equals 100dvh. A pinch zoom also shrinks it; that is not a keyboard.
+function followVisualViewport() {
+  const vv = window.visualViewport;
+  if (!vv) return;
+  const fit = () => {
+    if (vv.scale > 1.01) return;
+    document.documentElement.style.setProperty('--app-h', `${vv.height}px`);
+    if (vv.offsetTop) window.scrollTo(0, 0); // iOS pans the page to the caret; undo it
+  };
+  vv.addEventListener('resize', fit);
+  vv.addEventListener('scroll', fit);
+  fit();
+}
 
 async function main() {
   try {
@@ -16,6 +33,8 @@ async function main() {
     return;
   }
   document.getElementById('app').hidden = false;
+  followVisualViewport();
+  document.querySelectorAll('#app kbd').forEach((k) => (k.textContent = keyLabel(k.textContent)));
   // App shortcuts. The terminal is told which keys are ours so it never sends
   // them to the shell (see attachCustomKeyEventHandler in terminal.js).
   const shortcuts = {
@@ -39,6 +58,7 @@ async function main() {
     },
     onStatus: setStatus,
     focusTerminal: () => terminal.focus(),
+    holdKeys: () => terminal.hold(),
   });
   document.addEventListener('keydown', (e) => {
     const action = shortcuts[shortcutOf(e)];

@@ -28,6 +28,9 @@ export function createTerminal({ onStatus, isShortcut = () => false }) {
   // Keys typed while the socket is still connecting (a slow tailnet handshake,
   // a reconnect) wait here and go out in order once it opens.
   let pending = [];
+  // While an agent is being created, keys typed wait for its terminal instead
+  // of reaching the one still on screen (a slow host made that a real race).
+  let held = false;
   const encoder = new TextEncoder();
 
   function send(text) {
@@ -40,7 +43,18 @@ export function createTerminal({ onStatus, isShortcut = () => false }) {
 
   function sendBytes(bytes) {
     if (socket?.readyState === WebSocket.OPEN) socket.send(bytes);
-    else if (socket) pending.push(bytes);
+    else if (socket || held) pending.push(bytes);
+  }
+
+  // hold: the next connect is for keys typed from now on; until then they queue.
+  function hold() {
+    remember();
+    held = true;
+    const old = socket;
+    socket = null; // before close(), so its onclose does not reconnect
+    windowId = null;
+    pending = [];
+    old?.close();
   }
 
   function sendResize() {
@@ -68,7 +82,8 @@ export function createTerminal({ onStatus, isShortcut = () => false }) {
   function connect(id) {
     if (id !== windowId) remember();
     socket?.close();
-    if (id !== windowId) pending = []; // keys typed for another window stay there
+    if (id !== windowId && !held) pending = []; // keys typed for another window stay there
+    held = false;
     windowId = id;
     term.reset();
     if (!id) return;
@@ -86,7 +101,9 @@ export function createTerminal({ onStatus, isShortcut = () => false }) {
       onStatus('');
       fit.fit();
       sendResize();
-      pending.forEach((bytes) => ws.send(bytes));
+      // Answers to the dead client's queries mean nothing to this one, which
+      // would take them for typed text ("1;2c0;276;0c" at the agent's prompt).
+      pending.filter((bytes) => !isReply(bytes)).forEach((bytes) => ws.send(bytes));
       pending = [];
       term.focus();
     };
@@ -111,7 +128,9 @@ export function createTerminal({ onStatus, isShortcut = () => false }) {
   // Ctrl+V is let through to the browser, whose native paste event xterm turns
   // into a (bracketed) paste. Sent as the ^V byte instead, Claude Code would try
   // to read an image from the host's clipboard, which is not the viewer's.
-  const isPaste = (e) => e.type === 'keydown' && e.ctrlKey && !e.altKey && !e.metaKey && e.key.toLowerCase() === 'v';
+  // Apple devices paste with Cmd+V, which xterm already leaves to the browser;
+  // there Ctrl+V fires no paste at all, so it stays ^V, as in Terminal.app.
+  const isPaste = (e) => !APPLE && e.type === 'keydown' && e.ctrlKey && !e.altKey && !e.metaKey && e.key.toLowerCase() === 'v';
   term.attachCustomKeyEventHandler((e) => !isShortcut(e) && !isPaste(e));
   term.onData(send);
   term.onBinary((data) => sendBytes(Uint8Array.from(data, (c) => c.charCodeAt(0))));
@@ -122,8 +141,13 @@ export function createTerminal({ onStatus, isShortcut = () => false }) {
   wireTouchScroll(document.getElementById('terminal'), term);
   wireUploads({ send, onStatus });
 
-  return { connect, focus: () => term.focus(), get windowId() { return windowId; } };
+  return { connect, hold, focus: () => term.focus(), get windowId() { return windowId; } };
 }
+
+// tmux 3.5+ asks the terminal on attach: device attributes (DA1, DA2) and the
+// colours (OSC 10/11). These are xterm's answers, never keystrokes.
+const REPLY = /^\x1b(\[[?>][\d;]*c|\]1[01];rgb:[\da-f/]+(\x1b\\|\x07))$/;
+const isReply = (bytes) => REPLY.test(new TextDecoder().decode(bytes));
 
 const KEYS = {
   esc: '\x1b', tab: '\t', enter: '\r', 'ctrl-c': '\x03',
@@ -194,10 +218,20 @@ function wireTouchScroll(el, term) {
   el.addEventListener('touchend', () => { lastY = null; });
 }
 
+// Mac, and iPad/iPhone (iPadOS Safari says "MacIntel"): Cmd pastes, Option is Alt.
+export const APPLE = /Mac|iPhone|iPad|iPod/.test(navigator.platform);
+
 // shortcutOf names a key event the way the shortcut table does: "Ctrl+Shift+K".
+// Digits go by physical key: Option+1 on an Apple keyboard types "¡", not "1".
 export function shortcutOf(e) {
-  return [e.ctrlKey && 'Ctrl', e.altKey && 'Alt', e.shiftKey && 'Shift', e.metaKey && 'Meta', e.key.length === 1 ? e.key.toUpperCase() : e.key]
-    .filter(Boolean).join('+');
+  const key = /^Digit\d$/.test(e.code) ? e.code.slice(5) : e.key.length === 1 ? e.key.toUpperCase() : e.key;
+  return [e.ctrlKey && 'Ctrl', e.altKey && 'Alt', e.shiftKey && 'Shift', e.metaKey && 'Meta', key].filter(Boolean).join('+');
+}
+
+// keyLabel writes a shortcut hint the way the device's keyboard does:
+// "Ctrl ⇧ K" and "Alt 2" become "⌃⇧K" and "⌥2" on Apple devices.
+export function keyLabel(text) {
+  return APPLE ? text.replace(/Ctrl ?/g, '⌃').replace(/Alt ?/g, '⌥').replace(/⇧ ?/g, '⇧') : text;
 }
 
 // Ctrl+letter is the letter's code minus 64: Ctrl+C = 0x03.

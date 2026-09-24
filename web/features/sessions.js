@@ -3,10 +3,11 @@
 // agents, so the whole flow works from the keyboard:
 //   Ctrl+Shift+K, type, Enter  -> open the highlighted agent, or create one
 import { api } from './api.js';
+import { keyLabel } from './terminal.js';
 
 const POLL_MS = 2000;
 
-export function createSessions({ onSelect, onError, onStatus = () => {}, focusTerminal }) {
+export function createSessions({ onSelect, onError, onStatus = () => {}, focusTerminal, holdKeys = () => {} }) {
   const list = document.getElementById('tab-list');
   const find = document.getElementById('find');
   let windows = [];
@@ -86,7 +87,7 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
     li.dataset.index = w.index;
     const hotkey = document.createElement('kbd');
     hotkey.className = 'hotkey';
-    if (w.index >= 1 && w.index <= 9) hotkey.textContent = `Alt ${w.index}`;
+    if (w.index >= 1 && w.index <= 9) hotkey.textContent = keyLabel(`Alt ${w.index}`);
     const close = document.createElement('button');
     close.className = 'close';
     close.type = 'button';
@@ -212,12 +213,16 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
     list.querySelector('[aria-current="true"]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   }
 
+  // Keys typed while the host makes the window go to it, not to the agent on
+  // screen. If it fails, they go where they went before: the current window.
   async function create(name) {
+    holdKeys();
     try {
       const { id } = await api('POST', '/api/windows', { name });
       await refresh();
       open(id);
     } catch (e) {
+      select(current);
       onError(e);
     }
   }

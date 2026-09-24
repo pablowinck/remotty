@@ -4,7 +4,9 @@ import (
 	"bufio"
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -68,7 +70,8 @@ func (c Claude) Stopped(since time.Time) ([]Conversation, error) {
 
 // running returns the ids of conversations a live claude process holds. A
 // registry file can outlive its process and the pid be reused, so the process
-// start time recorded in the file must match /proc too.
+// start time recorded in the file must match the live process too. An unknown
+// start time never matches: an empty string on both sides is not a live process.
 func (c Claude) running() map[string]bool {
 	ids := map[string]bool{}
 	files, _ := filepath.Glob(filepath.Join(c.Home, "sessions", "*.json"))
@@ -78,20 +81,29 @@ func (c Claude) running() map[string]bool {
 			SessionID string `json:"sessionId"`
 			ProcStart string `json:"procStart"`
 		}
-		if b, err := os.ReadFile(f); err == nil && json.Unmarshal(b, &reg) == nil && procStart(reg.PID) == reg.ProcStart {
+		if b, err := os.ReadFile(f); err == nil && json.Unmarshal(b, &reg) == nil && reg.ProcStart != "" && procStart(reg.PID) == reg.ProcStart {
 			ids[reg.SessionID] = true
 		}
 	}
 	return ids
 }
 
-// procStart is field 22 of /proc/PID/stat, counted after the command name,
-// which is in parentheses and may itself contain spaces.
+// procStart is the process start time in the format Claude Code records it:
+// on Linux field 22 of /proc/PID/stat, elsewhere (macOS) what
+// `LC_ALL=C TZ=UTC ps -o lstart= -p PID` prints, trimmed.
 func procStart(pid int) string {
+	if runtime.GOOS != "linux" {
+		cmd := exec.Command("ps", "-o", "lstart=", "-p", strconv.Itoa(pid))
+		cmd.Env = append(os.Environ(), "LC_ALL=C", "TZ=UTC")
+		out, _ := cmd.Output()
+		return strings.TrimSpace(string(out))
+	}
 	b, err := os.ReadFile(filepath.Join("/proc", strconv.Itoa(pid), "stat"))
 	if err != nil {
 		return ""
 	}
+	// Field 22 is counted after the command name, which is in parentheses and
+	// may itself contain spaces.
 	fields := strings.Fields(string(b[strings.LastIndexByte(string(b), ')')+1:]))
 	if len(fields) < 20 {
 		return ""

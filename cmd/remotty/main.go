@@ -19,7 +19,7 @@ import (
 const usage = `remotty — your tmux windows in a browser tab.
 
   remotty serve [flags]      run the server (see remotty serve -h)
-  remotty install [flags]    run serve as a systemd user service: at boot, restarted on crash
+  remotty install [flags]    run serve as a login service (systemd on Linux, launchd on macOS), restarted on crash
   remotty pair [--json]      print a one-time pairing code (valid 5 min)
   remotty devices            list paired devices (expiry moves 30 days ahead on each use)
   remotty revoke ID|--all    unpair a device, closing its open terminals

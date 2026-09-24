@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 )
 
@@ -28,8 +29,8 @@ KillMode=process
 WantedBy=default.target
 `
 
-// install writes and starts a systemd user service running `remotty serve`
-// with the given serve flags.
+// install writes and starts a login service running `remotty serve` with the
+// given serve flags: a systemd user unit on Linux, a launchd agent on macOS.
 func install(args []string, out io.Writer) error {
 	// Parse now, so a typo fails here and not in a crash-looping service.
 	if _, err := parseServeFlags(args); err != nil {
@@ -40,6 +41,13 @@ func install(args []string, out io.Writer) error {
 		return err
 	}
 	exe, _ = filepath.EvalSymlinks(exe)
+	if runtime.GOOS == "darwin" {
+		return installLaunchd(exe, args, out)
+	}
+	return installSystemd(exe, args, out)
+}
+
+func installSystemd(exe string, args []string, out io.Writer) error {
 	dir, err := unitDir()
 	if err != nil {
 		return err

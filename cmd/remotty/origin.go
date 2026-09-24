@@ -20,10 +20,21 @@ func detectOrigins() string {
 	return strings.Join(origins, ",")
 }
 
+// tailscaleCLIs: the one on PATH, then the macOS app's own binary. The App
+// Store and standalone apps put no `tailscale` on PATH, and launchd's PATH is
+// bare anyway; without it, only localhost was allowed and the tablet was refused.
+var tailscaleCLIs = []string{"tailscale", "/Applications/Tailscale.app/Contents/MacOS/Tailscale"}
+
 // tailnetName asks the local tailscale daemon for this machine's DNS name.
 // Any failure just means "no tailnet": remotty still works on localhost.
 func tailnetName() string {
-	out, err := exec.Command("tailscale", "status", "--json").Output()
+	var out []byte
+	var err error
+	for _, cli := range tailscaleCLIs {
+		if out, err = exec.Command(cli, "status", "--json").Output(); err == nil {
+			break
+		}
+	}
 	if err != nil {
 		return ""
 	}

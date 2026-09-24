@@ -3,6 +3,8 @@ package sessions
 import (
 	"os"
 	"path/filepath"
+	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -30,7 +32,7 @@ const (
 
 func TestRestoreReopensStoppedConversationsInTheirDirectory(t *testing.T) {
 	tm := newTestTmux(t)
-	work := t.TempDir()
+	work, _ := filepath.EvalSymlinks(t.TempDir()) // macOS: /var is /private/var, as tmux reports it
 	home := fakeClaude(t, work, idA, idB)
 	// idB is held by a live process: this test's own pid, with its real start time.
 	reg := `{"pid":` + strconv.Itoa(os.Getpid()) + `,"sessionId":"` + idB + `","procStart":"` + procStart(os.Getpid()) + `"}`
@@ -82,6 +84,35 @@ func TestRestoreSkipsOldTranscriptsAndBadIDs(t *testing.T) {
 		t.Fatalf("an old transcript inside the window was not found: %+v", list)
 	}
 	_ = tm
+}
+
+// procStart must read the start time in the exact format Claude Code writes in
+// ~/.claude/sessions: /proc's clock ticks on Linux, `ps -o lstart=` in UTC
+// elsewhere. It used to read /proc only, so on macOS every conversation looked
+// stopped and Restore reopened agents that were still running.
+func TestProcStartMatchesClaudeCodesFormat(t *testing.T) {
+	got := procStart(os.Getpid())
+	want := regexp.MustCompile(`^[A-Z][a-z]{2} [A-Z][a-z]{2} [ \d]\d \d\d:\d\d:\d\d \d{4}$`)
+	if runtime.GOOS == "linux" {
+		want = regexp.MustCompile(`^\d+$`)
+	}
+	if !want.MatchString(got) {
+		t.Fatalf("procStart(self) = %q, want it to match %s", got, want)
+	}
+	if procStart(1<<22+1) != "" { // above every pid_max: no such process
+		t.Fatal("a missing process must have no start time")
+	}
+}
+
+// A registry left by a process that is gone must not hold its conversation,
+// even when neither side knows a start time.
+func TestAStaleRegistryDoesNotHoldItsConversation(t *testing.T) {
+	home := fakeClaude(t, t.TempDir(), idA)
+	reg := `{"pid":` + strconv.Itoa(1<<22+1) + `,"sessionId":"` + idA + `","procStart":""}`
+	os.WriteFile(filepath.Join(home, "sessions", "1.json"), []byte(reg), 0o600)
+	if list, _ := (Claude{Home: home}).Stopped(time.Now().Add(-time.Hour)); len(list) != 1 {
+		t.Fatalf("want the conversation of a dead process listed as stopped, got %+v", list)
+	}
 }
 
 func findWindow(t *testing.T, tm Tmux, name string) string {

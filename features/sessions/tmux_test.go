@@ -10,10 +10,19 @@ import (
 )
 
 // newTestTmux runs against a private tmux server so it never touches the user's sessions.
+// Not t.TempDir(): it embeds the test name, and under macOS's long $TMPDIR the
+// socket path passes the 104-byte limit of a unix socket ("File name too long").
 func newTestTmux(t *testing.T) Tmux {
 	t.Helper()
-	tm := Tmux{Socket: filepath.Join(t.TempDir(), "tmux.sock"), Session: "main"}
-	t.Cleanup(func() { exec.Command("tmux", "-S", tm.Socket, "kill-server").Run() })
+	dir, err := os.MkdirTemp("", "rt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tm := Tmux{Socket: filepath.Join(dir, "tmux.sock"), Session: "main"}
+	t.Cleanup(func() {
+		exec.Command("tmux", "-S", tm.Socket, "kill-server").Run()
+		os.RemoveAll(dir)
+	})
 	if err := tm.Ensure(); err != nil {
 		t.Fatalf("ensure: %v", err)
 	}

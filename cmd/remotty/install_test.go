@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/xml"
 	"strings"
 	"testing"
 )
@@ -15,6 +16,26 @@ func TestRenderUnitQuotesArgumentsForSystemd(t *testing.T) {
 		if !strings.Contains(unit, line) {
 			t.Errorf("unit misses %q", line)
 		}
+	}
+}
+
+// The plist is XML: a flag value with & or < must not break it, and each
+// argument must stay one <string>, since launchd does no word splitting.
+func TestRenderPlistEscapesAndKeepsArgumentsWhole(t *testing.T) {
+	p := renderPlist("/Users/u/go/bin/remotty", []string{"-restore-command", `claude --resume && echo "<ok>"`}, [3]string{"/opt/homebrew/bin:/usr/bin", "/bin/zsh", "pt_BR.UTF-8"}, "/Users/u/Library/Logs/remotty.log")
+	for _, want := range []string{
+		"<string>/Users/u/go/bin/remotty</string>\n\t\t<string>serve</string>\n\t\t<string>-restore-command</string>\n",
+		"<string>claude --resume &amp;&amp; echo &#34;&lt;ok&gt;&#34;</string>",
+		"<string>/opt/homebrew/bin:/usr/bin</string>",
+		"<key>AbandonProcessGroup</key>\n\t<true/>",
+		"<key>SuccessfulExit</key>\n\t\t<false/>",
+	} {
+		if !strings.Contains(p, want) {
+			t.Errorf("plist misses %q:\n%s", want, p)
+		}
+	}
+	if err := xml.Unmarshal([]byte(p), new(struct{})); err != nil {
+		t.Fatalf("plist is not well-formed XML: %v", err)
 	}
 }
 

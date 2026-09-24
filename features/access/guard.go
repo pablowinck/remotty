@@ -119,6 +119,10 @@ func (g Guard) RequireDevice(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		name, _ := cookieFor(r)
 		c, err := r.Cookie(name)
+		if err != nil && name == LocalCookieName {
+			// Paired before remotty-local existed: Chromium keeps a Secure cookie on localhost.
+			c, err = r.Cookie(CookieName)
+		}
 		if err != nil {
 			http.Error(w, "not paired", http.StatusUnauthorized)
 			return

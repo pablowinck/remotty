@@ -198,8 +198,10 @@ func TestLocalhostGetsItsOwnCookieAndOnlyLocalhostAcceptsIt(t *testing.T) {
 	if code := withLocal("remotty.test"); code != http.StatusUnauthorized {
 		t.Fatalf("localhost cookie accepted by the tailnet host: %d", code)
 	}
-	if code := request(h, "GET", "/api/me", "localhost:7681", "", c.Value, "").Code; code != http.StatusUnauthorized {
-		t.Fatalf("__Host- cookie name accepted on localhost: %d", code)
+	// A browser paired on localhost before remotty-local existed (Chromium kept
+	// the Secure __Host- cookie there) must stay paired after an upgrade.
+	if code := request(h, "GET", "/api/me", "localhost:7681", "", c.Value, "").Code; code != http.StatusOK {
+		t.Fatalf("an existing __Host- pairing on localhost was dropped: %d", code)
 	}
 }
 

@@ -16,7 +16,7 @@ need() {
 }
 need go   "Install Go $(sed -n 's/^go //p' go.mod)+ from https://go.dev/dl/ (a tarball in your home dir is enough, no sudo)."
 need node "Install Node 20+ (nvm or a tarball, no sudo)."
-need tmux "Install tmux 3.2+ with your package manager."
+need tmux "Install tmux 3.2+ with your package manager (brew install tmux on macOS)."
 
 e2e_only=false
 if [ "${1:-}" = "--e2e" ]; then
@@ -36,7 +36,7 @@ go build -o bin/remotty ./cmd/remotty
 echo "== e2e"
 cd e2e
 [ -d node_modules ] || npm ci --silent
-npx playwright install chromium >/dev/null
+npx playwright install chromium webkit >/dev/null
 npx playwright test "$@"
 
 if $e2e_only; then

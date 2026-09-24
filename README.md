@@ -13,7 +13,8 @@ machine and drive them from a tablet while travelling.
 
 ## Quick start
 
-Requires Linux or WSL2, tmux 3.2+, and [Go](https://go.dev/dl/) 1.24+ to build.
+Requires Linux, WSL2 or macOS, tmux 3.2+ (`brew install tmux` on a Mac), and
+[Go](https://go.dev/dl/) 1.24+ to build.
 
 ```sh
 go install github.com/pablowinck/remotty/cmd/remotty@latest
@@ -22,13 +23,19 @@ remotty serve
 ```
 
 `remotty serve` finds this machine's tailnet name by itself and prints the URL to
-open. To keep it running across reboots and crashes, install it as a systemd user
-service instead (no root needed; it takes the same flags as `serve`):
+open. On a Mac, the Tailscale app's own CLI is found too, even when `tailscale`
+is not on your PATH. To keep it running across reboots and crashes, install it
+as a service instead (no root needed; it takes the same flags as `serve`):
 
 ```sh
 remotty install
-loginctl enable-linger   # keep it up while you are logged out
 ```
+
+On Linux that is a systemd user service; run `loginctl enable-linger` to keep it
+up while you are logged out. On macOS it is a launchd agent in
+`~/Library/LaunchAgents`, started at login, with logs in `~/Library/Logs/remotty.log`.
+It records your current `PATH`, so run it from the shell whose `tmux` and
+`claude` you want the agents to use.
 
 On WSL2, the distro stops once no Windows process holds it open, taking remotty
 and tmux with it. Start `wsl.exe -d <distro> --exec dbus-launch true` from the
@@ -65,7 +72,8 @@ remotty revoke ID   # unpair; its open terminals close within a second
   chip), `Alt+↓` / `Alt+↑` go to the next or previous one. `Ctrl+Shift+K`
   opens the finder above the list: type to filter by name (or a window
   number), arrows to move, `Enter` to open, and you are typing in that agent.
-  None of these keys ever reach the shell. If nothing is named exactly that, the last row
+  None of these keys ever reach the shell. On a Mac, iPad or iPhone keyboard,
+  Alt is ⌥ Option and the hints say so (`⌥1`, `⌃⇧K`). If nothing is named exactly that, the last row
   creates a new agent with the name you typed; `Enter` on an empty finder
   creates an unnamed one. `Esc` goes back to the terminal. `+` opens the finder.
 - Double-tap a tab to rename it; `×` closes it.
@@ -82,7 +90,8 @@ remotty revoke ID   # unpair; its open terminals close within a second
   conversation's own directory; change it with `-restore-command` (for example
   `-restore-command "claude --dangerously-skip-permissions --resume"`), or pass
   `-restore-command ""` to hide the button.
-- Ctrl+V pastes the viewer's clipboard, as in any desktop terminal.
+- Ctrl+V pastes the viewer's clipboard, as in any desktop terminal. On a Mac, iPad
+  or iPhone it is ⌘V, and Ctrl+V stays the terminal's own ^V, as in Terminal.app.
 - Drag a tab to reorder the agents (on a touch screen, hold it first so a swipe
   still scrolls), or move the open one with Alt+Shift+↑/↓. The order is tmux's
   own window order, so ssh and every other device see it and Alt+1–9 follow it.
@@ -97,7 +106,9 @@ remotty revoke ID   # unpair; its open terminals close within a second
 - On a phone held upright the page fits the screen exactly: the agents become a
   strip on top (the current one is underlined), `+` creates an agent and the
   magnifier finds one (both open the finder over the whole row), and the keys sit in two rows with no sideways scrolling.
-  When the soft keyboard opens, the terminal shrinks to what is left.
+  When the soft keyboard opens, the terminal shrinks to what is left, on iOS too
+  (where Safari covers the page instead of resizing it). Tapping a field never
+  zooms the page in.
 - Install it as an app from the browser menu for full screen.
 
 ## Security model
@@ -115,6 +126,9 @@ is deliberately narrow:
 | DNS rebinding | `Host` allowlist; anything else gets 421 |
 | Injected script via terminal output or window names | Names rendered with `textContent`; enforced CSP with `script-src 'self'` |
 | Supply chain | Three small Go dependencies (PTY, WebSocket, QR), xterm.js bundled with its license, no build step |
+
+On `http://localhost` the device cookie cannot be `Secure` (Safari drops it), so
+it has another name there and is accepted only for a loopback `Host`.
 
 Only hashes of the pairing code and device tokens are stored, in
 `~/.local/state/remotty` with mode 0600. The CSP allows `'unsafe-inline'` for

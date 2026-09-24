@@ -9,7 +9,8 @@ go test ./features/access/         # one Go package
 ```
 
 A change is done when `./scripts/check.sh` ends with `== all green`. It needs
-`go`, `node` and `tmux`, and no sudo: Playwright downloads its own Chromium.
+`go`, `node` and `tmux`, and no sudo: Playwright downloads its own Chromium
+and WebKit (Safari's engine, for `e2e/ios.spec.js`). It runs on Linux and macOS.
 `--e2e` skips vet and unit tests for a fast loop; extra arguments go to
 Playwright. Run the full check before you call it done.
 

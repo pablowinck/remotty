@@ -8,7 +8,9 @@ test('dragging over output copies it to the system clipboard', async ({ page, ho
   host.tmux('set-option', '-g', 'mouse', 'on');
   await pair(page, host);
   await page.evaluate(() => navigator.clipboard.writeText('antes'));
-  await typeInTerminal(page, 'clear; echo copie-$((6*7))-agora\n');
+  // Not `clear`: macOS's ncurses leaves the typed line in tmux's history, so the
+  // drag began in copy mode one line up. Home, erase screen, erase history (E3).
+  await typeInTerminal(page, 'printf "\\033[H\\033[2J\\033[3J"; echo copie-$((6*7))-agora\n');
   await expect(page.locator('#terminal .xterm-rows')).toContainText('copie-42-agora');
 
   const row = page.locator('#terminal .xterm-rows > div', { hasText: /^copie-42-agora/ });
@@ -58,6 +60,8 @@ test('a program can set the clipboard but never read it through OSC 52', async (
 // Ctrl+V is paste, as in every desktop terminal. xterm.js would send it as the
 // ^V byte instead, and Claude Code reads ^V as "paste an image from the host".
 test('Ctrl+V pastes the clipboard text into the program', async ({ page, host }) => {
+  // Chromium on a Mac binds paste to Cmd+V only; apple.spec.js covers that side.
+  test.skip(process.platform === 'darwin', 'Chromium on macOS fires no paste for Ctrl+V');
   await pair(page, host);
   await page.evaluate(() => navigator.clipboard.writeText('colado-ok'));
   await typeInTerminal(page, 'read -r x; echo "got:[$x]"\n');

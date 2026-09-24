@@ -36,7 +36,8 @@ test('the terminal and its process survive a page reload', async ({ page, host }
 test('key bar sends Ctrl+C to interrupt a running command', async ({ page, host }) => {
   await pair(page, host);
   // "$((1+1))" is echoed literally; only execution would print "nao-2-devia".
-  await typeInTerminal(page, 'sleep 300; echo nao-$((1+1))-devia\n');
+  // "&&", not ";": bash 3.2 (macOS) runs the rest of a ";" list after ^C.
+  await typeInTerminal(page, 'sleep 300 && echo nao-$((1+1))-devia\n');
   await page.getByRole('button', { name: '^C' }).click();
   await typeInTerminal(page, 'echo interrompido-$((2+2))\n');
   await expect(page.locator('#terminal .xterm-rows')).toContainText('interrompido-4');

@@ -3,16 +3,21 @@
 // touches the developer's tmux or credentials.
 import { test as base, expect } from '@playwright/test';
 import { execFileSync, spawn } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { delimiter, join, resolve } from 'node:path';
 
 export const BIN = resolve(process.env.REMOTTY_BIN || join(import.meta.dirname, '..', 'bin', 'remotty'));
+
+// tmux may live outside the system dirs (Homebrew on macOS: /opt/homebrew/bin).
+const TMUX_DIR = (process.env.PATH || '').split(delimiter).find((d) => d && existsSync(join(d, 'tmux')));
 
 // Only what a shell needs. HOME points at the temp dir so rc files and
 // credentials of the real user are out of reach.
 function cleanEnv(dir) {
-  return { PATH: '/usr/local/bin:/usr/bin:/bin', HOME: dir, SHELL: '/bin/bash', LANG: 'C.UTF-8', REMOTTY_STATE_DIR: join(dir, 'state') };
+  const PATH = [TMUX_DIR, '/usr/local/bin', '/usr/bin', '/bin'].filter(Boolean).join(delimiter);
+  // macOS's /bin/bash (3.2) greets every shell with a "default shell is now zsh" banner.
+  return { PATH, HOME: dir, SHELL: '/bin/bash', LANG: 'C.UTF-8', REMOTTY_STATE_DIR: join(dir, 'state'), BASH_SILENCE_DEPRECATION_WARNING: '1' };
 }
 
 export class Host {
@@ -80,7 +85,8 @@ function stop(proc) {
 
 export const test = base.extend({
   host: async ({}, use) => {
-    const dir = mkdtempSync(join(tmpdir(), 'remotty-e2e-'));
+    // realpath: on macOS the temp dir is under /var, a symlink tmux reports as /private/var.
+    const dir = realpathSync(mkdtempSync(join(tmpdir(), 'remotty-e2e-')));
     // The UI is reached as http://localhost:PORT, so that is the allowed origin.
     const host = await startHost(dir, ['-origin', 'http://localhost:0']);
     await use(host);
@@ -94,7 +100,13 @@ export const test = base.extend({
   // A page that records every request leaving the host's origin and every CSP
   // violation. Both are needed: CSP blocks before the network, so the request
   // log alone would stay empty and prove nothing.
-  page: async ({ page, host }, use) => {
+  // navigator.platform is the host's, whatever device is emulated: headless
+  // Chromium on a Mac says "MacIntel" while it plays an Android tablet. Pinned,
+  // so a test means the same everywhere; apple.spec.js sets an Apple one.
+  platform: ['Linux x86_64', { option: true }],
+
+  page: async ({ page, host, platform }, use) => {
+    await page.addInitScript((p) => Object.defineProperty(Navigator.prototype, 'platform', { get: () => p, configurable: true }), platform);
     const foreign = [];
     const violations = [];
     page.on('request', (r) => { if (!r.url().startsWith(host.origin) && !r.url().startsWith('data:')) foreign.push(r.url()); });

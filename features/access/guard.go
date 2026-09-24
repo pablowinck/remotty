@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -13,6 +14,24 @@ import (
 // CookieName uses the __Host- prefix: the browser then refuses it unless it is
 // Secure, host-only and Path=/, so a sibling subdomain can never plant or read it.
 const CookieName = "__Host-remotty"
+
+// LocalCookieName is the device cookie on http://localhost only. Safari drops
+// Secure cookies on plain-http localhost (Chromium does not), so the __Host-
+// cookie never came back and Safari on the host could not pair. It is issued
+// and accepted only for a loopback Host, so the tailnet origin never takes it.
+const LocalCookieName = "remotty-local"
+
+// cookieFor names the device cookie of this request's host, and whether it is Secure.
+func cookieFor(r *http.Request) (name string, secure bool) {
+	host, _, err := net.SplitHostPort(r.Host)
+	if err != nil {
+		host = r.Host
+	}
+	if ip := net.ParseIP(host); host == "localhost" || (ip != nil && ip.IsLoopback()) {
+		return LocalCookieName, false
+	}
+	return CookieName, true
+}
 
 // CSP allows nothing from anywhere but this host. 'unsafe-inline' is limited to
 // styles because xterm.js injects a <style> element; scripts never get it.
@@ -98,7 +117,8 @@ func (g Guard) OriginHosts() []string {
 // any terminal it holds open.
 func (g Guard) RequireDevice(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		c, err := r.Cookie(CookieName)
+		name, _ := cookieFor(r)
+		c, err := r.Cookie(name)
 		if err != nil {
 			http.Error(w, "not paired", http.StatusUnauthorized)
 			return
@@ -161,9 +181,10 @@ func (g Guard) HandlePair(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "could not pair", http.StatusInternalServerError)
 		return
 	}
+	name, secure := cookieFor(r)
 	http.SetCookie(w, &http.Cookie{
-		Name: CookieName, Value: token, Path: "/", Expires: dev.Expires,
-		Secure: true, HttpOnly: true, SameSite: http.SameSiteStrictMode,
+		Name: name, Value: token, Path: "/", Expires: dev.Expires,
+		Secure: secure, HttpOnly: true, SameSite: http.SameSiteStrictMode,
 	})
 	writeJSONResponse(w, map[string]string{"name": dev.Name})
 }

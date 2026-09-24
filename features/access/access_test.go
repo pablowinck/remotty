@@ -162,6 +162,47 @@ func TestPairingCookieIsLockedDown(t *testing.T) {
 	}
 }
 
+// Safari drops a Secure cookie on http://localhost, so pairing there must set a
+// non-Secure one, and only there: the tailnet origin keeps the __Host- cookie,
+// and a localhost cookie sent to the tailnet host (or the reverse) is refused.
+func TestLocalhostGetsItsOwnCookieAndOnlyLocalhostAcceptsIt(t *testing.T) {
+	s, _ := newStore(t)
+	local := "http://localhost:7681"
+	g := Guard{Store: s, Origins: []string{origin, local}}
+	mux := http.NewServeMux()
+	mux.HandleFunc("POST /api/pair", g.HandlePair)
+	mux.HandleFunc("GET /api/me", g.RequireDevice(HandleMe))
+	h := g.Wrap(mux)
+
+	code, _ := s.NewCode()
+	w := request(h, "POST", "/api/pair", "localhost:7681", local, "", `{"code":"`+code+`","name":"mac"}`)
+	cookies := w.Result().Cookies()
+	if w.Code != http.StatusOK || len(cookies) != 1 {
+		t.Fatalf("pair on localhost = %d, cookies %+v", w.Code, cookies)
+	}
+	c := cookies[0]
+	if c.Name != LocalCookieName || c.Secure || !c.HttpOnly || c.SameSite != http.SameSiteStrictMode || c.Path != "/" {
+		t.Fatalf("localhost cookie wrong: %+v", c)
+	}
+	withLocal := func(host string) int {
+		r := httptest.NewRequest("GET", "/api/me", nil)
+		r.Host = host
+		r.AddCookie(&http.Cookie{Name: LocalCookieName, Value: c.Value})
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, r)
+		return rec.Code
+	}
+	if code := withLocal("localhost:7681"); code != http.StatusOK {
+		t.Fatalf("localhost cookie on localhost got %d", code) // anchor for the refusal below
+	}
+	if code := withLocal("remotty.test"); code != http.StatusUnauthorized {
+		t.Fatalf("localhost cookie accepted by the tailnet host: %d", code)
+	}
+	if code := request(h, "GET", "/api/me", "localhost:7681", "", c.Value, "").Code; code != http.StatusUnauthorized {
+		t.Fatalf("__Host- cookie name accepted on localhost: %d", code)
+	}
+}
+
 func TestAuthenticatedRequestPassesAndUnpairedIsRefused(t *testing.T) {
 	g, h := guarded(t)
 	c := pairCookie(t, g, h)

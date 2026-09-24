@@ -39,10 +39,13 @@ test('a wrong code is refused and a used code cannot pair twice', async ({ page,
   await other.close();
 });
 
-test('the device cookie is HttpOnly, Secure and SameSite=Strict', async ({ page, host, context }) => {
+// Tests reach the host as http://localhost, where the cookie cannot be Secure
+// (Safari drops it); it is still HttpOnly and Strict. The tailnet's __Host-
+// cookie, Secure included, is pinned by TestPairingCookieIsLockedDown in Go.
+test('the device cookie is HttpOnly and SameSite=Strict', async ({ page, host, context }) => {
   await pair(page, host);
-  const [cookie] = (await context.cookies()).filter((c) => c.name === '__Host-remotty');
-  expect(cookie).toMatchObject({ httpOnly: true, secure: true, sameSite: 'Strict', path: '/' });
+  const [cookie] = (await context.cookies()).filter((c) => c.name === 'remotty-local');
+  expect(cookie).toMatchObject({ httpOnly: true, secure: false, sameSite: 'Strict', path: '/' });
   expect(await page.evaluate(() => document.cookie)).not.toContain('remotty');
 });
 
@@ -102,7 +105,9 @@ test('every response carries the strict CSP, even errors', async ({ request, hos
 
 test('the host only listens on loopback', async ({ host }) => {
   const port = new URL(host.origin).port;
-  const lines = execFileSync('ss', ['-ltnH', `sport = :${port}`], { encoding: 'utf8' }).trim().split('\n');
+  const lines = process.platform === 'darwin' // no ss on macOS
+    ? execFileSync('lsof', ['-nP', `-iTCP:${port}`, '-sTCP:LISTEN', '-Fn'], { encoding: 'utf8' }).split('\n').filter((l) => l.startsWith('n'))
+    : execFileSync('ss', ['-ltnH', `sport = :${port}`], { encoding: 'utf8' }).trim().split('\n');
   expect(lines.length).toBeGreaterThan(0); // anchor: we found the listener
   for (const l of lines) expect(l).toMatch(/127\.0\.0\.1:\d+/);
 });

@@ -6,7 +6,9 @@ package sessions
 import (
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strings"
 )
@@ -47,10 +49,16 @@ func (t Tmux) run(args ...string) (string, error) {
 	return string(out), nil
 }
 
-// Ensure creates the session if it does not exist yet.
+// Ensure creates the session if it does not exist yet. With -S tmux does not
+// create the socket's directory, and /tmp (where the default one lives) is
+// wiped at every boot: without this, after a reboot no agent could be created.
+// 0700 because tmux refuses a socket directory other users can read.
 func (t Tmux) Ensure() error {
 	if _, err := t.run("has-session", "-t", "="+t.Session); err == nil {
 		return nil
+	}
+	if err := os.MkdirAll(filepath.Dir(t.Socket), 0o700); err != nil {
+		return err
 	}
 	_, err := t.run("new-session", "-d", "-s", t.Session)
 	return err

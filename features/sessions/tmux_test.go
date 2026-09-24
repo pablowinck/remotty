@@ -1,6 +1,7 @@
 package sessions
 
 import (
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
@@ -202,4 +203,21 @@ func mustList(t *testing.T, tm Tmux) []Window {
 		t.Fatal(err)
 	}
 	return w
+}
+
+// /tmp is wiped at boot, and with -S tmux does not create the socket's
+// directory: the default /tmp/tmux-UID/default is then unusable until
+// something makes the directory. After a reboot that was every agent gone
+// and no way to create a new one from the page.
+func TestEnsureCreatesTheSocketDirectory(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "tmux-1000") // does not exist yet
+	tm := Tmux{Socket: filepath.Join(dir, "default"), Session: "main"}
+	t.Cleanup(func() { exec.Command("tmux", "-S", tm.Socket, "kill-server").Run() })
+	if _, err := tm.Create("depois-do-boot"); err != nil {
+		t.Fatalf("Create with a missing socket directory: %v", err)
+	}
+	st, err := os.Stat(dir)
+	if err != nil || st.Mode().Perm() != 0o700 {
+		t.Fatalf("socket dir %v (%v), want 0700: tmux refuses a directory others can read", st, err)
+	}
 }

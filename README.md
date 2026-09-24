@@ -107,6 +107,8 @@ remotty revoke ID   # unpair; its open terminals close within a second
   conversation's own directory; change it with `-restore-command` (for example
   `-restore-command "claude --dangerously-skip-permissions --resume"`), or pass
   `-restore-command ""` to hide the button.
+- Shift+Enter (or Alt/⌥+Enter) is a new line in Claude Code's prompt, not Enter: it
+  sends ESC CR, the Meta+Enter that Claude Code's `/terminal-setup` binds it to.
 - Ctrl+V pastes the viewer's clipboard, as in any desktop terminal. On a Mac, iPad
   or iPhone it is ⌘V, and Ctrl+V stays the terminal's own ^V, as in Terminal.app.
 - Drag a tab to reorder the agents (on a touch screen, hold it first so a swipe

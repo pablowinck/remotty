@@ -44,6 +44,20 @@ test('key bar sends Ctrl+C to interrupt a running command', async ({ page, host 
   expect(host.capture(host.windows()[0].id)).not.toContain('nao-2-devia');
 });
 
+// Shift+Enter is "new line" in Claude Code; xterm.js sent a plain Enter, which
+// submitted the prompt. It must reach the program as ESC CR (Meta+Enter).
+// od shows the bytes (the pty's icrnl turns each CR into \n): a plain Enter
+// would show as a bare \n, without the ESC (033) in front of it.
+test('Shift+Enter and Alt+Enter send ESC CR, not a plain Enter', async ({ page, host }) => {
+  await pair(page, host);
+  await typeInTerminal(page, 'od -c\n');
+  await page.waitForTimeout(300);
+  for (const key of ['Shift+Enter', 'Alt+Enter']) await page.keyboard.press(key);
+  await page.keyboard.press('Enter');
+  await page.keyboard.press('Control+D');
+  await expect.poll(() => host.capture(host.windows()[0].id)).toMatch(/^0000000\s+033\s+\\n\s+033\s+\\n\s+\\n\s*$/m);
+});
+
 test('key bar Enter runs the typed command', async ({ page, host }) => {
   await pair(page, host);
   // No "\n": only the button can submit the line, and only execution turns $((3*5)) into 15.

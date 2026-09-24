@@ -134,7 +134,19 @@ export function createTerminal({ onStatus, isShortcut = () => false }) {
   // Apple devices paste with Cmd+V, which xterm already leaves to the browser;
   // there Ctrl+V fires no paste at all, so it stays ^V, as in Terminal.app.
   const isPaste = (e) => !APPLE && e.type === 'keydown' && e.ctrlKey && !e.altKey && !e.metaKey && e.key.toLowerCase() === 'v';
-  term.attachCustomKeyEventHandler((e) => !isShortcut(e) && !isPaste(e));
+  // Shift+Enter (or Option/Alt+Enter) is "new line" in Claude Code's prompt.
+  // xterm.js sends a plain \r for it, which submits. ESC CR is Meta+Enter: what
+  // Claude Code's /terminal-setup binds Shift+Enter to in VS Code and others,
+  // and tmux forwards it with extended-keys off, the default.
+  const isNewline = (e) => e.key === 'Enter' && (e.shiftKey || e.altKey) && !e.ctrlKey && !e.metaKey;
+  term.attachCustomKeyEventHandler((e) => {
+    if (!isNewline(e)) return !isShortcut(e) && !isPaste(e);
+    if (e.type === 'keydown') {
+      e.preventDefault();
+      send('\x1b\r');
+    }
+    return false;
+  });
   term.onData(send);
   term.onBinary((data) => sendBytes(Uint8Array.from(data, (c) => c.charCodeAt(0))));
   term.onResize(sendResize);

@@ -110,8 +110,9 @@ test('tmux gets the size the browser measured, and follows it on resize', async 
 
   await page.setViewportSize({ width: 700, height: 500 });
   await expect.poll(() => sizes.at(-1).cols).toBeLessThan(first.cols);
-  const second = sizes.at(-1);
-  await expect.poll(clientSize).toBe(`${second.cols}x${second.rows}`);
+  // A resize can arrive in steps (the visual viewport settles a frame later):
+  // tmux must end at the last size the page sent, not the first.
+  await expect.poll(() => clientSize() === `${sizes.at(-1).cols}x${sizes.at(-1).rows}`).toBe(true);
 });
 
 // tmux keeps the scrollback, not xterm: the tablet has to reach it by touch.

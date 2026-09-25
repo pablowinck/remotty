@@ -55,6 +55,10 @@ async function main() {
   };
   for (let n = 1; n <= 9; n++) shortcuts[`Alt+${n}`] = () => sessions.openIndex(n);
   const isShortcut = (e) => Boolean(shortcuts[shortcutOf(e)]);
+  // xterm measures its cell once, when it opens. Waiting for the embedded font
+  // (same origin, milliseconds) gives the PTY its final size from the start;
+  // measured on the fallback, it was resized again moments later.
+  await document.fonts?.load('13px "JetBrains Mono"').catch(() => {});
   const terminal = createTerminal({ onStatus: setStatus, isShortcut });
   const sessions = createSessions({
     onSelect: (id) => {

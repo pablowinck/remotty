@@ -44,10 +44,6 @@ export function createTerminal({ onStatus, isShortcut = () => false }) {
   term.open(document.getElementById('terminal'));
   // xterm measures the cell once, at open: a webfont that arrives later would
   // leave it measured on the fallback. Re-measure when it lands.
-  document.fonts?.load('13px "JetBrains Mono"').then(() => {
-    term.options.fontFamily = term.options.fontFamily;
-    fit.fit();
-  });
   wireClipboard(term);
 
   let socket = null;

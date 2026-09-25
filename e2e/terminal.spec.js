@@ -65,6 +65,22 @@ test('Ctrl toggle turns the next key into a control character', async ({ page, h
   expect(host.capture(host.windows()[0].id)).not.toMatch(/linha-que-somee?cho limpo/);
 });
 
+// A plain window resize is one resize for tmux. Following every visual viewport
+// event sent a size the page only passed through first, and every agent redrew
+// twice; under load, tmux could keep the stale one for a moment.
+test('a window resize sends one size, not a step through a passing one', async ({ page, host }) => {
+  const sizes = [];
+  page.on('websocket', (ws) => ws.on('framesent', (f) => { if (typeof f.payload === 'string') sizes.push(JSON.parse(f.payload)); }));
+  await pair(page, host);
+  await expect.poll(() => sizes.length).toBeGreaterThan(0); // anchor: the page reports its size
+  await page.waitForTimeout(500);
+  const before = sizes.length;
+  await page.setViewportSize({ width: 700, height: 500 });
+  await expect.poll(() => sizes.length).toBeGreaterThan(before);
+  await page.waitForTimeout(800); // room for a second, stale step to show up
+  expect(sizes.slice(before).map((s) => `${s.cols}x${s.rows}`)).toHaveLength(1);
+});
+
 test('tmux gets the size the browser measured, and follows it on resize', async ({ page, host }) => {
   const sizes = [];
   page.on('websocket', (ws) => ws.on('framesent', (f) => {

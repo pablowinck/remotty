@@ -14,13 +14,20 @@ const setStatus = (text) => (status.textContent = text);
 function followVisualViewport() {
   const vv = window.visualViewport;
   if (!vv) return;
+  const root = document.documentElement.style;
+  // Only while something covers the page (the keyboard): otherwise 100dvh is
+  // already right, and following every event resized the terminal twice on a
+  // plain window resize, once at a height the viewport only passed through.
   const fit = () => {
     if (vv.scale > 1.01) return;
-    document.documentElement.style.setProperty('--app-h', `${vv.height}px`);
+    if (vv.height < innerHeight - 1) root.setProperty('--app-h', `${vv.height}px`);
+    else root.removeProperty('--app-h');
     if (vv.offsetTop) window.scrollTo(0, 0); // iOS pans the page to the caret; undo it
   };
-  vv.addEventListener('resize', fit);
-  vv.addEventListener('scroll', fit);
+  let queued = 0; // one fit per frame: the events come in bursts while the keyboard slides
+  const later = () => queued || (queued = requestAnimationFrame(() => { queued = 0; fit(); }));
+  vv.addEventListener('resize', later);
+  vv.addEventListener('scroll', later);
   fit();
 }
 

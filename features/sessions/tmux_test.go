@@ -220,7 +220,14 @@ func mustList(t *testing.T, tm Tmux) []Window {
 // something makes the directory. After a reboot that was every agent gone
 // and no way to create a new one from the page.
 func TestEnsureCreatesTheSocketDirectory(t *testing.T) {
-	dir := filepath.Join(t.TempDir(), "tmux-1000") // does not exist yet
+	// A short base, like newTestTmux: t.TempDir() under macOS's long $TMPDIR
+	// pushes the socket past the 104-byte limit ("File name too long").
+	base, err := os.MkdirTemp("", "rt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.RemoveAll(base) })
+	dir := filepath.Join(base, "tmux-1000") // does not exist yet
 	tm := Tmux{Socket: filepath.Join(dir, "default"), Session: "main"}
 	t.Cleanup(func() { exec.Command("tmux", "-S", tm.Socket, "kill-server").Run() })
 	if _, err := tm.Create("depois-do-boot"); err != nil {

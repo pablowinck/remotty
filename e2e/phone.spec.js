@@ -86,6 +86,23 @@ test('an agent chosen from the finder scrolls into view in the tab strip', async
   await expect(page.locator('#tab-list li[aria-current="true"]')).toBeInViewport({ ratio: 0.9 });
 });
 
+// Switching agents with a finger must not pop the soft keyboard up: it hides
+// half the agent. It opens when the terminal itself is tapped.
+test('tapping another tab leaves the soft keyboard closed until the terminal is tapped', async ({ page, host }) => {
+  agents(host, 2);
+  await pair(page, host);
+  const textarea = page.locator('#terminal .xterm-helper-textarea');
+  await page.locator('#tab-list li', { hasText: 'agente-com-nome-2' }).tap();
+  await expect(page.locator('#tab-list li[aria-current="true"] .name')).toHaveText('agente-com-nome-2');
+  await page.waitForTimeout(500); // the socket opens and would have focused by now
+  await expect(textarea).not.toBeFocused();
+  await page.locator('#terminal').tap();
+  await expect(textarea).toBeFocused(); // anchor: the terminal can still take the keyboard
+  await page.keyboard.type('echo no-dois-$((1+1))\n');
+  const two = host.windows().find((w) => w.name === 'agente-com-nome-2');
+  await expect.poll(() => host.capture(two.id)).toContain('no-dois-2');
+});
+
 // Creating an agent on a phone must be findable without knowing a shortcut:
 // a visible "+" and a finder that says it creates.
 test('a visible + creates an agent by touch alone', async ({ page, host }) => {
@@ -101,6 +118,11 @@ test('a visible + creates an agent by touch alone', async ({ page, host }) => {
   await page.keyboard.type('pelo-celular');
   await page.locator('#tab-list li.create').tap(); // tap the row, not Enter
   await expect(page.locator('#tab-list li[aria-current="true"] .name')).toHaveText('pelo-celular');
+  // Opened by a tap, the agent leaves the soft keyboard closed until its terminal is tapped.
+  await expect(page.locator('#terminal .xterm-helper-textarea')).not.toBeFocused();
+  await expect(page.locator('#find')).not.toBeFocused();
+  await page.locator('#terminal').tap();
+  await expect(page.locator('#terminal .xterm-helper-textarea')).toBeFocused();
   await page.keyboard.type('echo criado-$((4*4))\n');
   const w = () => host.windows().find((x) => x.name === 'pelo-celular');
   await expect.poll(() => w() && host.capture(w().id)).toContain('criado-16');

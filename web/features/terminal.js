@@ -15,6 +15,14 @@ const GHOSTTY = {
   brightBlue: '#7aa6da', brightMagenta: '#c397d8', brightCyan: '#70c0b1', brightWhite: '#eaeaea',
 };
 
+// Switched with a finger, the soft keyboard stays closed until the terminal
+// itself is tapped. A mouse or a keyboard still hands the keys to the terminal
+// at once. Personal preference (local branch), not upstream behaviour.
+let lastInput = matchMedia('(pointer: coarse)').matches ? 'touch' : 'mouse'; // no keyboard popping up at load
+addEventListener('pointerdown', (e) => (lastInput = e.pointerType), true);
+addEventListener('keydown', () => (lastInput = 'key'), true);
+const byTouch = () => lastInput === 'touch';
+
 // Retry fast after a blip, then back off so a host that is down (or a tablet
 // that lost signal) is not hammered. Reset on every successful connection.
 const RETRY_MS = [500, 1000, 2000, 4000, 8000];
@@ -126,7 +134,7 @@ export function createTerminal({ onStatus, isShortcut = () => false }) {
       // would take them for typed text ("1;2c0;276;0c" at the agent's prompt).
       pending.filter((bytes) => !isReply(bytes)).forEach((bytes) => ws.send(bytes));
       pending = [];
-      term.focus();
+      if (!byTouch()) term.focus();
     };
     ws.onmessage = (e) => term.write(new Uint8Array(e.data));
     ws.onclose = () => {
@@ -170,11 +178,13 @@ export function createTerminal({ onStatus, isShortcut = () => false }) {
   term.onResize(sendResize);
   new ResizeObserver(() => fit.fit()).observe(document.getElementById('stage'));
 
-  wireKeyBar({ send, toggleCtrl: () => setCtrl(!ctrlArmed), focus: () => term.focus(), onStatus });
+  wireKeyBar({ send, toggleCtrl: () => setCtrl(!ctrlArmed), focus: () => byTouch() || term.focus(), onStatus });
   wireTouchScroll(document.getElementById('terminal'), term);
   wireUploads({ send, onStatus });
 
-  return { connect, hold, focus: () => term.focus(), get windowId() { return windowId; } };
+  // After a tap, blur instead: a focused field (the finder, the terminal) keeps the soft keyboard up.
+  const focus = () => (byTouch() ? document.activeElement?.blur() : term.focus());
+  return { connect, hold, focus, get windowId() { return windowId; } };
 }
 
 // tmux 3.5+ asks the terminal on attach: device attributes (DA1, DA2) and the

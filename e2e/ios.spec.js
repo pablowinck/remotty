@@ -26,6 +26,12 @@ test.describe('on an iPhone', () => {
     const screen = await page.locator('#terminal .xterm-screen').boundingBox();
     expect(screen.width).toBeGreaterThan(300); // anchor: the terminal still fills the width
     expect(screen.x).toBeGreaterThanOrEqual(6);
+    // The right margin matches the left, give or take the part of a cell that
+    // does not fit: no strip kept for a scrollbar that never shows.
+    const cols = Number(host.tmux('list-clients', '-F', '#{client_width}').trim());
+    const cell = screen.width / cols;
+    expect(cols).toBeGreaterThan(30); // anchor: a real terminal width
+    expect(390 - (screen.x + screen.width)).toBeLessThanOrEqual(screen.x + cell);
     const keys = await page.locator('#keys button').evaluateAll((bs) => bs.map((b) => b.getBoundingClientRect()));
     expect(keys.length).toBeGreaterThan(8); // anchor: the whole bar is there
     expect(Math.min(...keys.map((r) => r.left))).toBeGreaterThanOrEqual(6);

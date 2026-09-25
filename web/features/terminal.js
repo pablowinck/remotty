@@ -13,7 +13,10 @@ export function createTerminal({ onStatus, isShortcut = () => false }) {
     cursorBlink: true,
     fontFamily: 'ui-monospace, "Cascadia Mono", Menlo, monospace',
     fontSize: 14,
-    scrollback: 5000,
+    // The history lives in tmux (copy mode), so xterm's own stays empty. With
+    // any scrollback, fit reserves 14px on the right for a scrollbar that never
+    // shows: an empty strip, and text off-centre against the left margin.
+    scrollback: 0,
     theme: { background: '#101418' },
   });
   const fit = new FitAddon();

@@ -19,6 +19,19 @@ test.describe('on an iPhone', () => {
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
   });
 
+  // Glued to the bezel, the first column of text and the outer keys were hard
+  // to read and to hit: the terminal and the key bar keep a margin on a phone.
+  test('the terminal text and the keys keep a margin from the screen edges', async ({ page, host }) => {
+    await pair(page, host);
+    const screen = await page.locator('#terminal .xterm-screen').boundingBox();
+    expect(screen.width).toBeGreaterThan(300); // anchor: the terminal still fills the width
+    expect(screen.x).toBeGreaterThanOrEqual(6);
+    const keys = await page.locator('#keys button').evaluateAll((bs) => bs.map((b) => b.getBoundingClientRect()));
+    expect(keys.length).toBeGreaterThan(8); // anchor: the whole bar is there
+    expect(Math.min(...keys.map((r) => r.left))).toBeGreaterThanOrEqual(6);
+    expect(Math.max(...keys.map((r) => r.right))).toBeLessThanOrEqual(390 - 6);
+  });
+
   test('the device pairs under its own name', async ({ page, host }) => {
     await page.goto(host.origin);
     await page.getByLabel('Code').fill(host.pairCode());

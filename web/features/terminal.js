@@ -236,18 +236,17 @@ function wireClipboard(term) {
   });
 }
 
-// Local: xterm turns a wheel's pixels into steps by dividing by the cell
-// height, and keeps only 30% of any event under 50px: every event of a gentle
-// trackpad swipe or a finger drag. Those barely moved. Here small events are
-// summed and every WHEEL_PX becomes one step: about 1.6x the old pace. Events
-// of 50px or more (a fast flick) keep xterm's own pace, which was never slow.
-const WHEEL_PX = 36;
+// Local: scroll at Ghostty's pace (mouse-scroll-multiplier precision:1): one
+// wheel step per line height of trackpad or finger travel. xterm sends at most
+// one step per event, whatever its size, and keeps 30% of events under 50px,
+// so a swipe barely moved and a fast flick sent only a few steps.
 function wireWheel(term) {
   let carry = 0;
   let replaying = false;
   term.attachCustomWheelEventHandler((e) => {
-    if (replaying || e.deltaMode !== WheelEvent.DOM_DELTA_PIXEL || e.shiftKey || Math.abs(e.deltaY) >= 50) return true;
-    carry += e.deltaY / WHEEL_PX;
+    if (replaying || e.deltaMode !== WheelEvent.DOM_DELTA_PIXEL || e.shiftKey) return true;
+    const cell = term.element.querySelector('.xterm-rows > div')?.getBoundingClientRect().height || LINE_PX;
+    carry += e.deltaY / cell;
     const steps = Math.trunc(carry);
     carry -= steps;
     replaying = true;

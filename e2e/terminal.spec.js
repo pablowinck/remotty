@@ -115,10 +115,10 @@ test('tmux gets the size the browser measured, and follows it on resize', async 
   await expect.poll(() => clientSize() === `${sizes.at(-1).cols}x${sizes.at(-1).rows}`).toBe(true);
 });
 
-// Local: a gentle trackpad swipe barely scrolled. xterm sends at most one wheel
-// report per event and keeps 30% of small ones; small events are now summed,
-// one report per 36px. A little faster, never more than one report per 30px.
-test('a gentle trackpad swipe sends a wheel step per 36px, not per ~57px', async ({ page, host }) => {
+// Local: scroll at Ghostty's pace, one wheel step per line height of travel.
+// xterm sent at most one step per event and kept 30% of small ones, so a
+// swipe barely moved; asserted from both sides, so it cannot creep back or jump.
+test('a trackpad swipe sends one wheel step per line of travel', async ({ page, host }) => {
   host.tmux('set-option', '-g', 'mouse', 'on');
   const sent = [];
   page.on('websocket', (ws) => ws.on('framesent', (f) => { if (typeof f.payload !== 'string') sent.push(Buffer.from(f.payload).toString()); }));
@@ -137,8 +137,9 @@ test('a gentle trackpad swipe sends a wheel step per 36px, not per ~57px', async
   const px = await page.evaluate(() => window.__px);
   const reports = sent.filter((s) => /^\x1b\[<64;/.test(s)).length;
   expect(px).toBeGreaterThan(100); // anchor: the swipe really happened
-  expect(reports).toBeGreaterThanOrEqual(Math.floor(px / 36) - 1);
-  expect(reports).toBeLessThanOrEqual(Math.ceil(px / 30));
+  const cell = await page.evaluate(() => document.querySelector('#terminal .xterm-rows > div').getBoundingClientRect().height);
+  expect(reports).toBeGreaterThanOrEqual(Math.floor(px / cell) - 1);
+  expect(reports).toBeLessThanOrEqual(Math.ceil(px / cell) + 1);
   expect(Number(host.tmux('display', '-p', '-t', host.windows()[0].id, '#{scroll_position}').trim())).toBeGreaterThan(0);
 });
 

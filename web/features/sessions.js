@@ -45,6 +45,12 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
   const collapsed = loadCollapsed();
   let current = null;
   let highlighted = 0; // index into the visible rows while the field has focus
+  let naming = false; // local: ⌘T opened the finder to name a new agent
+  const findHint = document.getElementById('find').placeholder;
+  function stopNaming() {
+    naming = false;
+    find.placeholder = findHint;
+  }
   let timer = null;
 
   async function refresh() {
@@ -85,6 +91,7 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
 
   // Rows the keyboard can land on: the matches, then "create" when there is a name.
   function rows() {
+    if (naming) return [{ create: query() }]; // ⌘T: the only row is the agent being named
     const matches = visible();
     const name = query();
     if (!name || /^\d+$/.test(name)) return matches;
@@ -107,9 +114,9 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
   const hotkeyOrder = () => tree().filter((row) => row.id).slice(0, 9);
 
   function render() {
-    const all = query() ? rows() : tree();
+    const all = query() || naming ? rows() : tree(); // naming: ⌘T shows only the agent being named
     highlighted = Math.min(highlighted, Math.max(all.length - 1, 0));
-    const searching = document.activeElement === find && query() !== '';
+    const searching = document.activeElement === find && (query() !== '' || naming);
     list.replaceChildren(...all.map((row, i) => {
       const li = rowElement(row);
       li.classList.toggle('highlighted', searching && i === highlighted);
@@ -119,7 +126,7 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
   }
 
   function rowElement(row) {
-    if (row.create !== undefined) return createRow('create', `+ New agent "${row.create}"`, () => create(row.create));
+    if (row.create !== undefined) return createRow('create', row.create ? `+ New agent "${row.create}"` : '+ New agent', () => create(row.create));
     if (row.createFolder !== undefined) return createRow('create-folder', `+ New folder "${row.createFolder}"`, () => addFolder(row.createFolder));
     if (row.header !== undefined) return folderRow(row.header);
     return item(row);
@@ -515,12 +522,14 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
     } else if (e.key === 'Enter') {
       e.preventDefault();
       const row = all[highlighted];
+      stopNaming();
       if (row?.create !== undefined) create(row.create);
       else if (row?.createFolder !== undefined) addFolder(row.createFolder);
       else if (row) open(row.id);
       else if (!query()) create(''); // empty field + Enter: a fresh agent
     } else if (e.key === 'Escape') {
       e.preventDefault();
+      stopNaming();
       find.value = '';
       render();
       focusTerminal();
@@ -537,7 +546,10 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
   list.addEventListener('pointerdown', (e) => {
     if (document.activeElement === find) e.preventDefault();
   });
-  find.addEventListener('blur', () => setTimeout(render)); // drop the highlight
+  find.addEventListener('blur', () => setTimeout(() => {
+    if (document.activeElement !== find) stopNaming(); // clicked away: back to finding
+    render(); // drop the highlight
+  }));
   // Tapping "+" must not blur the finder on the way (the tap lands on the button,
   // which would steal focus), so focus it after the button has taken the click.
   document.getElementById('new-tab').addEventListener('click', () => {
@@ -594,7 +606,38 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
       find.select();
       render();
     },
-    // ⌘T: an unnamed agent, like "+" then Enter; keys typed meanwhile wait for it.
-    newAgent: () => create(''),
+    // ⌘T: the finder in "new agent" mode. Enter creates whatever was typed,
+    // even a name some agent already contains; empty, an unnamed agent.
+    newAgent() {
+      naming = true;
+      find.value = '';
+      find.placeholder = 'Name the new agent';
+      find.focus();
+      render();
+    },
+    // ⌘W: close the open agent, undoably (⌘Z), and move to its neighbour.
+    async closeCurrent() {
+      const at = windows.findIndex((w) => w.id === current);
+      if (at < 0) return;
+      const next = windows[at + 1] || windows[at - 1];
+      try {
+        await api('POST', `/api/windows/${encodeURIComponent(current)}/close`);
+      } catch (e) {
+        return onError(e);
+      }
+      onStatus('Closed. ⌘Z reopens it.');
+      await refresh();
+      open(next ? next.id : null);
+    },
+    async reopenLast() {
+      try {
+        const { id } = await api('POST', '/api/windows/reopen');
+        onStatus('');
+        await refresh();
+        open(id);
+      } catch (e) {
+        onStatus(e.message.includes('nothing') ? 'Nothing to reopen' : e.message);
+      }
+    },
   };
 }

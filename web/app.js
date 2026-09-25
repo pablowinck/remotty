@@ -48,8 +48,11 @@ async function main() {
   // them to the shell (see attachCustomKeyEventHandler in terminal.js).
   const shortcuts = {
     'Ctrl+Shift+K': () => sessions.focusFind(),
-    // Local: ⌘T opens a new agent at once and hands it the keyboard, as in Ghostty.
+    // Local, as in Ghostty: ⌘T asks for the new agent's name (Enter creates it),
+    // ⌘W closes the open agent, ⌘Z reopens the last one closed.
     'Meta+T': () => sessions.newAgent(),
+    'Meta+W': () => sessions.closeCurrent(),
+    'Meta+Z': () => sessions.reopenLast(),
     'Alt+ArrowDown': () => sessions.step(1),
     'Alt+ArrowUp': () => sessions.step(-1),
     'Alt+Shift+ArrowDown': () => sessions.shift(1),
@@ -77,6 +80,7 @@ async function main() {
   });
   document.addEventListener('keydown', (e) => {
     const action = shortcuts[shortcutOf(e)];
+    if (e.target.id === 'find' && shortcutOf(e) === 'Meta+Z') return; // typing a name: ⌘Z undoes text
     if (action) {
       e.preventDefault();
       action();

@@ -13,9 +13,11 @@ test.describe('on a Mac', () => {
     await expect(page.locator('#tabs-hint')).not.toContainText('Alt'); // anchor above: the hint is there
   });
 
-  // Local: ⌘T is Ghostty's "new tab". It opens an agent at once and hands it the
-  // keyboard; nothing reaches the shell it came from.
-  test('⌘T opens a new agent and lands in its terminal', async ({ page, host }) => {
+  // Local, as in Ghostty: ⌘T asks for a name first. Enter creates the agent
+  // with that name, even when another agent's name contains it, and lands in
+  // its terminal. Nothing reaches the shell the shortcut came from.
+  test('⌘T asks for a name, and Enter creates that agent', async ({ page, host }) => {
+    host.tmux('new-window', '-d', '-t', '=main:', '-n', 'revisor-pr');
     const sent = [];
     page.on('websocket', (ws) => ws.on('framesent', (f) => { if (typeof f.payload !== 'string') sent.push(Buffer.from(f.payload).toString()); }));
     await pair(page, host);
@@ -24,12 +26,51 @@ test.describe('on a Mac', () => {
     const before = host.windows().length;
     sent.length = 0;
     await page.keyboard.press('Meta+T');
-    await expect.poll(() => host.windows().length).toBe(before + 1);
+    await expect(page.locator('#find')).toBeFocused();
+    await expect(page.locator('#find')).toHaveAttribute('placeholder', /name/i);
+    expect(host.windows()).toHaveLength(before); // nothing made before the name
+    await page.keyboard.type('revisor');
+    await page.keyboard.press('Enter');
+    await expect.poll(() => host.windows().map((w) => w.name)).toContain('revisor');
     expect(sent.filter((s) => /t/i.test(s))).toEqual([]); // no "t" typed into the old agent
+    await expect(page.locator('#tab-list li[aria-current="true"] .name')).toHaveText('revisor');
     await page.keyboard.type('echo no-novo-$((3*3))\n');
-    const fresh = () => host.windows().at(-1);
+    const fresh = () => host.windows().find((w) => w.name === 'revisor');
     await expect.poll(() => host.capture(fresh().id)).toContain('no-novo-9');
-    await expect(page.locator('#tab-list li[aria-current="true"]')).toHaveAttribute('data-id', fresh().id);
+  });
+
+  test('⌘T then Enter with no name creates an unnamed agent', async ({ page, host }) => {
+    await pair(page, host);
+    const before = host.windows().length;
+    await page.locator('#terminal .xterm-helper-textarea').focus();
+    await page.keyboard.press('Meta+T');
+    await expect(page.locator('#find')).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect.poll(() => host.windows().length).toBe(before + 1);
+  });
+
+  // ⌘W closes the open agent, not the app; ⌘Z brings the same one back with
+  // its shell still running, not a fresh one.
+  test('⌘W closes only the open agent, and ⌘Z reopens it still running', async ({ page, host }) => {
+    host.tmux('new-window', '-d', '-t', '=main:', '-n', 'fecha-e-volta');
+    await pair(page, host);
+    await page.locator('#tab-list li', { hasText: 'fecha-e-volta' }).click();
+    await expect(page.locator('#tab-list li[aria-current="true"] .name')).toHaveText('fecha-e-volta');
+    await typeInTerminal(page, 'export MARCA=viva-$((5*5))\n');
+    const id = host.windows().find((w) => w.name === 'fecha-e-volta').id;
+    await expect.poll(() => host.capture(id)).toContain('MARCA=viva');
+
+    await page.keyboard.press('Meta+W');
+    await expect.poll(() => host.windows().map((w) => w.id)).not.toContain(id);
+    await expect(page.locator('#tab-list li', { hasText: 'fecha-e-volta' })).toHaveCount(0);
+    await expect(page.locator('#app')).toBeVisible(); // the app is still there
+    expect(host.windows().length).toBeGreaterThan(0); // anchor: another agent is open now
+
+    await page.keyboard.press('Meta+Z');
+    await expect(page.locator('#tab-list li[aria-current="true"] .name')).toHaveText('fecha-e-volta');
+    expect(host.windows().find((w) => w.name === 'fecha-e-volta').id).toBe(id); // the same window
+    await typeInTerminal(page, 'echo "ainda=$MARCA"\n');
+    await expect.poll(() => host.capture(id)).toContain('ainda=viva-25'); // its shell kept running
   });
 
   // Option+2 on a Mac types "™" (key) on the Digit2 key (code). Matching on the

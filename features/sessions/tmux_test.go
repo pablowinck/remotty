@@ -219,6 +219,20 @@ func mustList(t *testing.T, tm Tmux) []Window {
 // directory: the default /tmp/tmux-UID/default is then unusable until
 // something makes the directory. After a reboot that was every agent gone
 // and no way to create a new one from the page.
+func TestNewWindowsStartInHome(t *testing.T) {
+	home, _ := filepath.EvalSymlinks(t.TempDir())
+	t.Setenv("HOME", home)
+	tm := newTestTmux(t)
+	id, err := tm.Create("em-casa")
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, _ := tm.run("display-message", "-p", "-t", id, "#{pane_current_path}")
+	if got := strings.TrimSpace(out); got != home {
+		t.Fatalf("new window started in %q, want %q", got, home)
+	}
+}
+
 func TestEnsureCreatesTheSocketDirectory(t *testing.T) {
 	// A short base, like newTestTmux: t.TempDir() under macOS's long $TMPDIR
 	// pushes the socket past the 104-byte limit ("File name too long").

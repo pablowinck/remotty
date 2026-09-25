@@ -66,8 +66,16 @@ func (t Tmux) Ensure() error {
 	if err := os.MkdirAll(filepath.Dir(t.Socket), 0o700); err != nil {
 		return err
 	}
-	_, err := t.run("new-session", "-d", "-s", t.Session)
+	_, err := t.run(append([]string{"new-session", "-d", "-s", t.Session}, inHome()...)...)
 	return err
+}
+
+// inHome starts new windows in ~: under launchd the server's own directory is /.
+func inHome() []string {
+	if home, err := os.UserHomeDir(); err == nil {
+		return []string{"-c", home}
+	}
+	return nil
 }
 
 // inSession runs a command that needs the session. If the session vanished
@@ -113,7 +121,7 @@ func parseWindows(out string) []Window {
 // Create opens a new window running the user's shell and returns its id.
 func (t Tmux) Create(name string) (string, error) { return t.CreateAt(name, "") }
 
-// CreateAt is Create starting in directory dir; "" is tmux's default.
+// CreateAt is Create starting in directory dir; "" is the home directory.
 func (t Tmux) CreateAt(name, dir string) (string, error) {
 	if err := validName(name); err != nil {
 		return "", err
@@ -121,6 +129,8 @@ func (t Tmux) CreateAt(name, dir string) (string, error) {
 	args := []string{"new-window", "-d", "-P", "-F", "#{window_id}", "-t", "=" + t.Session + ":"}
 	if dir != "" {
 		args = append(args, "-c", dir)
+	} else {
+		args = append(args, inHome()...)
 	}
 	if name != "" {
 		args = append(args, "-n", name)

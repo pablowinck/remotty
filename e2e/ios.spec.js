@@ -75,6 +75,6 @@ test.describe('on an iPad', () => {
     await typeInTerminal(page, 'echo ipad-$((6*7))\n');
     await expect(page.locator('#terminal .xterm-rows')).toContainText('ipad-42');
     await expect.poll(() => host.capture(host.windows()[0].id)).toContain('ipad-42');
-    await expect(page.locator('#find-key')).toHaveText('⌃⇧K');
+    await expect(page.locator('#find-key')).toHaveText('⌘T');
   });
 });

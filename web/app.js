@@ -48,6 +48,8 @@ async function main() {
   // them to the shell (see attachCustomKeyEventHandler in terminal.js).
   const shortcuts = {
     'Ctrl+Shift+K': () => sessions.focusFind(),
+    // Local: ⌘T opens a new agent at once and hands it the keyboard, as in Ghostty.
+    'Meta+T': () => sessions.newAgent(),
     'Alt+ArrowDown': () => sessions.step(1),
     'Alt+ArrowUp': () => sessions.step(-1),
     'Alt+Shift+ArrowDown': () => sessions.shift(1),

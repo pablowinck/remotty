@@ -20,7 +20,7 @@ for (const [label, viewport] of [['tablet', null], ['desktop', { width: 1440, he
 
     const chip = page.locator('#find-key');
     await expect(chip).toBeVisible();
-    await expect(chip).toHaveText(/Ctrl.*K/);
+    await expect(chip).toHaveText('⌘T');
     const box = await page.locator('#find').boundingBox();
     const c = await chip.boundingBox();
     expect(c.x).toBeGreaterThanOrEqual(box.x);

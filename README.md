@@ -78,7 +78,8 @@ remotty revoke ID   # unpair; its open terminals close within a second
   opens the finder above the list: type to filter by name (or a window
   number), arrows to move, `Enter` to open, and you are typing in that agent.
   None of these keys ever reach the shell. On a Mac, iPad or iPhone keyboard,
-  Alt is ⌥ Option and the hints say so (`⌥1`, `⌃⇧K`). If nothing is named exactly that, the last row
+  Alt is ⌥ Option and the hints say so (`⌥1`). ⌘T opens a new agent at once,
+  as in Ghostty (this local build shows ⌘T on the finder instead of `⌃⇧K`). If nothing is named exactly that, the last row
   creates a new agent with the name you typed; `Enter` on an empty finder
   creates an unnamed one. `Esc` goes back to the terminal. `+` opens the finder.
 - Double-tap a tab to rename it. Its `⋯` menu closes it, moves it to a folder, or

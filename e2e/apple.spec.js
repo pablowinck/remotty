@@ -7,10 +7,29 @@ test.describe('on a Mac', () => {
   test('hints are written with the Mac modifier symbols', async ({ page, host }) => {
     host.tmux('new-window', '-d', '-t', '=main:', '-n', 'agente-1');
     await pair(page, host);
-    await expect(page.locator('#find-key')).toHaveText('⌃⇧K');
+    await expect(page.locator('#find-key')).toHaveText('⌘T');
     await expect(page.locator('#tabs-hint')).toContainText('⌥1–9');
     await expect(page.locator('#tab-list li[data-index="1"] .hotkey')).toHaveText('⌥2'); // second row
     await expect(page.locator('#tabs-hint')).not.toContainText('Alt'); // anchor above: the hint is there
+  });
+
+  // Local: ⌘T is Ghostty's "new tab". It opens an agent at once and hands it the
+  // keyboard; nothing reaches the shell it came from.
+  test('⌘T opens a new agent and lands in its terminal', async ({ page, host }) => {
+    const sent = [];
+    page.on('websocket', (ws) => ws.on('framesent', (f) => { if (typeof f.payload !== 'string') sent.push(Buffer.from(f.payload).toString()); }));
+    await pair(page, host);
+    await typeInTerminal(page, 'x');
+    await expect.poll(() => sent.includes('x')).toBe(true); // anchor: keys reach the socket
+    const before = host.windows().length;
+    sent.length = 0;
+    await page.keyboard.press('Meta+T');
+    await expect.poll(() => host.windows().length).toBe(before + 1);
+    expect(sent.filter((s) => /t/i.test(s))).toEqual([]); // no "t" typed into the old agent
+    await page.keyboard.type('echo no-novo-$((3*3))\n');
+    const fresh = () => host.windows().at(-1);
+    await expect.poll(() => host.capture(fresh().id)).toContain('no-novo-9');
+    await expect(page.locator('#tab-list li[aria-current="true"]')).toHaveAttribute('data-id', fresh().id);
   });
 
   // Option+2 on a Mac types "™" (key) on the Digit2 key (code). Matching on the

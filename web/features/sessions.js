@@ -594,5 +594,7 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
       find.select();
       render();
     },
+    // ⌘T: an unnamed agent, like "+" then Enter; keys typed meanwhile wait for it.
+    newAgent: () => create(''),
   };
 }

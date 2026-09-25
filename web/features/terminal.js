@@ -4,24 +4,42 @@ import { Terminal } from '/lib/xterm/xterm.mjs';
 import { FitAddon } from '/lib/xterm/addon-fit.mjs';
 import { wireUploads } from './uploads.js';
 
+// The look of Ghostty's defaults on this machine (`ghostty +show-config
+// --default`): JetBrains Mono 13, its background and foreground, and the 16
+// ANSI colours. Colours 16–255 are the standard xterm cube both share.
+const GHOSTTY = {
+  background: '#282c34', foreground: '#ffffff', cursor: '#ffffff', cursorAccent: '#282c34',
+  black: '#1d1f21', red: '#cc6666', green: '#b5bd68', yellow: '#f0c674',
+  blue: '#81a2be', magenta: '#b294bb', cyan: '#8abeb7', white: '#c5c8c6',
+  brightBlack: '#666666', brightRed: '#d54e53', brightGreen: '#b9ca4a', brightYellow: '#e7c547',
+  brightBlue: '#7aa6da', brightMagenta: '#c397d8', brightCyan: '#70c0b1', brightWhite: '#eaeaea',
+};
+
 // Retry fast after a blip, then back off so a host that is down (or a tablet
 // that lost signal) is not hammered. Reset on every successful connection.
 const RETRY_MS = [500, 1000, 2000, 4000, 8000];
 
 export function createTerminal({ onStatus, isShortcut = () => false }) {
   const term = new Terminal({
-    cursorBlink: true,
-    fontFamily: 'ui-monospace, "Cascadia Mono", Menlo, monospace',
-    fontSize: 14,
+    cursorBlink: false,
+    cursorStyle: 'block',
+    fontFamily: '"JetBrains Mono", ui-monospace, Menlo, monospace',
+    fontSize: 13,
     // The history lives in tmux (copy mode), so xterm's own stays empty. With
     // any scrollback, fit reserves 14px on the right for a scrollbar that never
     // shows: an empty strip, and text off-centre against the left margin.
     scrollback: 0,
-    theme: { background: '#101418' },
+    theme: GHOSTTY,
   });
   const fit = new FitAddon();
   term.loadAddon(fit);
   term.open(document.getElementById('terminal'));
+  // xterm measures the cell once, at open: a webfont that arrives later would
+  // leave it measured on the fallback. Re-measure when it lands.
+  document.fonts?.load('13px "JetBrains Mono"').then(() => {
+    term.options.fontFamily = term.options.fontFamily;
+    fit.fit();
+  });
   wireClipboard(term);
 
   let socket = null;

@@ -1,9 +1,16 @@
+/* JetBrains Mono, Ghostty's built-in font, embedded: nothing leaves the origin. */
+@font-face { font-family: "JetBrains Mono"; src: url(/lib/fonts/JetBrainsMono-Regular.woff2) format("woff2"); font-weight: 400; font-style: normal; font-display: block; }
+@font-face { font-family: "JetBrains Mono"; src: url(/lib/fonts/JetBrainsMono-Bold.woff2) format("woff2"); font-weight: 700; font-style: normal; font-display: block; }
+@font-face { font-family: "JetBrains Mono"; src: url(/lib/fonts/JetBrainsMono-Italic.woff2) format("woff2"); font-weight: 400; font-style: italic; font-display: block; }
+@font-face { font-family: "JetBrains Mono"; src: url(/lib/fonts/JetBrainsMono-BoldItalic.woff2) format("woff2"); font-weight: 700; font-style: italic; font-display: block; }
+
 :root {
-  --bg: #101418;
-  --panel: #161c22;
-  --line: #26303a;
-  --text: #d7dde3;
-  --muted: #8593a0;
+  /* Ghostty's default look: the terminal background, and panels a step darker. */
+  --bg: #282c34;
+  --panel: #21252b;
+  --line: #3a3f4b;
+  --text: #ffffff;
+  --muted: #9da5b4;
   --accent: #f5a524;
   --bell: #ff5d5d;
   --activity: #4cc2ff;
@@ -86,8 +93,8 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
 #tab-menu button:hover:not(:disabled), #tab-menu button:focus-visible { background: var(--line); outline: none; }
 #tab-menu button:disabled { color: var(--muted); opacity: .55; }
 
-#stage { grid-area: stage; position: relative; min-width: 0; min-height: 0; padding: .3rem; }
-#terminal { position: absolute; inset: .3rem; }
+#stage { grid-area: stage; position: relative; min-width: 0; min-height: 0; }
+#terminal { position: absolute; inset: 2px; } /* Ghostty's window-padding = 2 */
 #empty { color: var(--muted); padding: 1rem; }
 
 #keys { grid-area: keys; display: flex; gap: .3rem; padding: .3rem; overflow-x: auto; border-top: 1px solid var(--line); }

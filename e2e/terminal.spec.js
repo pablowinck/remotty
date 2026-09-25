@@ -115,6 +115,33 @@ test('tmux gets the size the browser measured, and follows it on resize', async 
   await expect.poll(() => clientSize() === `${sizes.at(-1).cols}x${sizes.at(-1).rows}`).toBe(true);
 });
 
+// Local: a gentle trackpad swipe barely scrolled. xterm sends at most one wheel
+// report per event and keeps 30% of small ones; small events are now summed,
+// one report per 36px. A little faster, never more than one report per 30px.
+test('a gentle trackpad swipe sends a wheel step per 36px, not per ~57px', async ({ page, host }) => {
+  host.tmux('set-option', '-g', 'mouse', 'on');
+  const sent = [];
+  page.on('websocket', (ws) => ws.on('framesent', (f) => { if (typeof f.payload !== 'string') sent.push(Buffer.from(f.payload).toString()); }));
+  await pair(page, host);
+  await typeInTerminal(page, 'for i in $(seq 1 300); do echo linha-$i; done\n');
+  await expect(page.locator('#terminal .xterm-rows')).toContainText('linha-300');
+  await page.evaluate(() => {
+    window.__px = 0;
+    document.querySelector('#terminal .xterm-screen').addEventListener('wheel', (e) => { if (e.isTrusted) window.__px += Math.abs(e.deltaY); }, true);
+  });
+  const box = await page.locator('#terminal').boundingBox();
+  await page.mouse.move(box.x + box.width / 2, box.y + 200);
+  sent.length = 0;
+  for (let i = 0; i < 20; i++) { await page.mouse.wheel(0, -30); await page.waitForTimeout(25); }
+  await page.waitForTimeout(500);
+  const px = await page.evaluate(() => window.__px);
+  const reports = sent.filter((s) => /^\x1b\[<64;/.test(s)).length;
+  expect(px).toBeGreaterThan(100); // anchor: the swipe really happened
+  expect(reports).toBeGreaterThanOrEqual(Math.floor(px / 36) - 1);
+  expect(reports).toBeLessThanOrEqual(Math.ceil(px / 30));
+  expect(Number(host.tmux('display', '-p', '-t', host.windows()[0].id, '#{scroll_position}').trim())).toBeGreaterThan(0);
+});
+
 // tmux keeps the scrollback, not xterm: the tablet has to reach it by touch.
 test('dragging a finger down scrolls back into the tmux history', async ({ page, host }) => {
   host.tmux('set-option', '-g', 'mouse', 'on'); // tmux's own default is off; most users turn it on

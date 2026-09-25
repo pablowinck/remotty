@@ -176,6 +176,7 @@ export function createTerminal({ onStatus, isShortcut = () => false }) {
 
   wireKeyBar({ send, toggleCtrl: () => setCtrl(!ctrlArmed), focus: () => byTouch() || term.focus(), onStatus });
   wireTouchScroll(document.getElementById('terminal'), term);
+  wireWheel(term);
   wireUploads({ send, onStatus });
 
   // After a tap, blur instead: a focused field (the finder, the terminal) keeps the soft keyboard up.
@@ -232,6 +233,30 @@ function wireClipboard(term) {
       navigator.clipboard?.writeText(new TextDecoder().decode(bytes)).catch(() => {});
     } catch {} // malformed base64: ignore, never echo anything back
     return true;
+  });
+}
+
+// Local: xterm turns a wheel's pixels into steps by dividing by the cell
+// height, and keeps only 30% of any event under 50px: every event of a gentle
+// trackpad swipe or a finger drag. Those barely moved. Here small events are
+// summed and every WHEEL_PX becomes one step: about 1.6x the old pace. Events
+// of 50px or more (a fast flick) keep xterm's own pace, which was never slow.
+const WHEEL_PX = 36;
+function wireWheel(term) {
+  let carry = 0;
+  let replaying = false;
+  term.attachCustomWheelEventHandler((e) => {
+    if (replaying || e.deltaMode !== WheelEvent.DOM_DELTA_PIXEL || e.shiftKey || Math.abs(e.deltaY) >= 50) return true;
+    carry += e.deltaY / WHEEL_PX;
+    const steps = Math.trunc(carry);
+    carry -= steps;
+    replaying = true;
+    // A line-mode event of 1 is one step in xterm, with no pixel maths applied.
+    const at = { clientX: e.clientX, clientY: e.clientY, bubbles: true, cancelable: true, deltaMode: WheelEvent.DOM_DELTA_LINE };
+    for (let i = 0; i < Math.abs(steps); i++) e.target.dispatchEvent(new WheelEvent('wheel', { ...at, deltaY: Math.sign(steps) }));
+    replaying = false;
+    e.preventDefault();
+    return false;
   });
 }
 

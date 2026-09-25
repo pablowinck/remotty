@@ -150,7 +150,7 @@ export function createTerminal({ onStatus, isShortcut = () => false }) {
 // tmux 3.5+ asks the terminal on attach: device attributes (DA1, DA2) and the
 // colours (OSC 10/11). These are xterm's answers, never keystrokes.
 const REPLY = /^\x1b(\[[?>][\d;]*c|\]1[01];rgb:[\da-f/]+(\x1b\\|\x07))$/;
-const isReply = (bytes) => REPLY.test(new TextDecoder().decode(bytes));
+export const isReply = (bytes) => REPLY.test(new TextDecoder().decode(bytes));
 
 const KEYS = {
   esc: '\x1b', tab: '\t', enter: '\r', 'ctrl-c': '\x03',

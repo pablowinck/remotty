@@ -36,11 +36,19 @@ go build -o bin/remotty ./cmd/remotty
 echo "== e2e"
 cd e2e
 [ -d node_modules ] || npm ci --silent
-npx playwright install chromium webkit >/dev/null
+npx playwright install chromium webkit >/dev/null 2>&1 || true
+# WebKit on Linux needs system libraries only `sudo npx playwright install-deps
+# webkit` adds. Without them the iOS tests are skipped, loudly, not failed: the
+# check must stay runnable without sudo. On macOS WebKit always runs.
+if ! node -e "require('@playwright/test').webkit.launch().then((b) => b.close())" >/dev/null 2>&1; then
+  export REMOTTY_SKIP_WEBKIT=1
+  echo "!! WebKit cannot start here: e2e/ios.spec.js is SKIPPED." >&2
+  echo "!! To run it: sudo npx --prefix e2e playwright install-deps webkit" >&2
+fi
 npx playwright test "$@"
 
 if $e2e_only; then
-  echo "== e2e green (run without --e2e before calling it done)"
+  echo "== e2e green${REMOTTY_SKIP_WEBKIT:+ (without WebKit)} (run without --e2e before calling it done)"
 else
-  echo "== all green"
+  echo "== all green${REMOTTY_SKIP_WEBKIT:+ (without WebKit: iOS tests skipped)}"
 fi

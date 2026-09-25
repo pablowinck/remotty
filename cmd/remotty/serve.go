@@ -72,7 +72,7 @@ func serve(args []string, store access.Store) error {
 }
 
 func warnIfExposed(addr string) {
-	if host, _, err := net.SplitHostPort(addr); err == nil && !isLoopback(host) {
+	if host, _, err := net.SplitHostPort(addr); err == nil && !access.IsLoopback(host) {
 		log.Printf("warning: listening on %s, not loopback. Anyone who can reach it only needs a pairing code.", host)
 	}
 }
@@ -159,11 +159,6 @@ func tmuxSocket(flagValue string) string {
 		dir = "/tmp"
 	}
 	return fmt.Sprintf("%s/tmux-%d/default", dir, os.Getuid())
-}
-
-func isLoopback(host string) bool {
-	ip := net.ParseIP(host)
-	return host == "localhost" || (ip != nil && ip.IsLoopback())
 }
 
 func runUntilSignal(srv *http.Server, ln net.Listener) error {

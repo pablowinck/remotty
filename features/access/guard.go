@@ -27,10 +27,16 @@ func cookieFor(r *http.Request) (name string, secure bool) {
 	if err != nil {
 		host = r.Host
 	}
-	if ip := net.ParseIP(host); host == "localhost" || (ip != nil && ip.IsLoopback()) {
+	if IsLoopback(host) {
 		return LocalCookieName, false
 	}
 	return CookieName, true
+}
+
+// IsLoopback tells whether host (no port) names this machine only.
+func IsLoopback(host string) bool {
+	ip := net.ParseIP(host)
+	return host == "localhost" || (ip != nil && ip.IsLoopback())
 }
 
 // CSP allows nothing from anywhere but this host. 'unsafe-inline' is limited to

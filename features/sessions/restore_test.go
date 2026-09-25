@@ -3,6 +3,7 @@ package sessions
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"runtime"
 	"strconv"
@@ -35,7 +36,7 @@ func TestRestoreReopensStoppedConversationsInTheirDirectory(t *testing.T) {
 	work, _ := filepath.EvalSymlinks(t.TempDir()) // macOS: /var is /private/var, as tmux reports it
 	home := fakeClaude(t, work, idA, idB)
 	// idB is held by a live process: this test's own pid, with its real start time.
-	reg := `{"pid":` + strconv.Itoa(os.Getpid()) + `,"sessionId":"` + idB + `","procStart":"` + procStart(os.Getpid()) + `"}`
+	reg := `{"pid":` + strconv.Itoa(os.Getpid()) + `,"sessionId":"` + idB + `","procStart":"` + procStarts([]int{os.Getpid()})[os.Getpid()] + `"}`
 	os.WriteFile(filepath.Join(home, "sessions", "1.json"), []byte(reg), 0o600)
 	t.Setenv("SHELL", "/bin/sh")
 
@@ -91,7 +92,7 @@ func TestRestoreSkipsOldTranscriptsAndBadIDs(t *testing.T) {
 // elsewhere. It used to read /proc only, so on macOS every conversation looked
 // stopped and Restore reopened agents that were still running.
 func TestProcStartMatchesClaudeCodesFormat(t *testing.T) {
-	got := procStart(os.Getpid())
+	got := procStarts([]int{os.Getpid()})[os.Getpid()]
 	want := regexp.MustCompile(`^[A-Z][a-z]{2} [A-Z][a-z]{2} [ \d]\d \d\d:\d\d:\d\d \d{4}$`)
 	if runtime.GOOS == "linux" {
 		want = regexp.MustCompile(`^\d+$`)
@@ -99,7 +100,7 @@ func TestProcStartMatchesClaudeCodesFormat(t *testing.T) {
 	if !want.MatchString(got) {
 		t.Fatalf("procStart(self) = %q, want it to match %s", got, want)
 	}
-	if procStart(1<<22+1) != "" { // above every pid_max: no such process
+	if procStarts([]int{1<<22 + 1})[1<<22+1] != "" { // above every pid_max: no such process
 		t.Fatal("a missing process must have no start time")
 	}
 }
@@ -125,4 +126,14 @@ func findWindow(t *testing.T, tm Tmux, name string) string {
 	}
 	t.Fatalf("no window named %q in %+v", name, windows)
 	return ""
+}
+
+// One ps call answers for every pid; a one-digit day keeps its double space,
+// as Claude Code wrote it, or a running conversation would look stopped.
+func TestParsePSKeepsLstartAsPsPrintsIt(t *testing.T) {
+	got := parsePS("  812 Fri Sep  5 09:03:07 2026\n91234 Thu Sep 25 22:10:00 2026\n")
+	want := map[int]string{812: "Fri Sep  5 09:03:07 2026", 91234: "Thu Sep 25 22:10:00 2026"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("parsePS = %q, want %q", got, want)
+	}
 }

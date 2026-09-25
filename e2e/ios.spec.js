@@ -3,6 +3,8 @@ import { test, expect, pair, typeInTerminal } from './fixtures.js';
 // Safari's engine. iOS and iPadOS browsers are all WebKit, so this is what
 // an iPhone or iPad really runs, emulated in size, touch and platform.
 test.use({ browserName: 'webkit' });
+// check.sh sets this when WebKit's system libraries are missing (Linux without sudo).
+test.skip(!!process.env.REMOTTY_SKIP_WEBKIT, 'WebKit cannot start on this host');
 
 // An iPhone in WebKit, Safari's engine: the page must fit, and a focused field
 // must not zoom the page in (iOS does that below 16px and never zooms back).

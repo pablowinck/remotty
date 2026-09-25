@@ -20,9 +20,13 @@ func TestOriginListDefaultsToLocalhost(t *testing.T) {
 	}
 }
 
-// Without tailscale on PATH, detection must fall back to localhost only, not fail.
+// Without tailscale, detection must fall back to localhost only, not fail. The
+// Mac app's absolute path is left out: on a Mac with Tailscale it would ask the
+// real daemon.
 func TestDetectOriginsWithoutTailscale(t *testing.T) {
 	t.Setenv("PATH", t.TempDir())
+	defer func(saved []string) { tailscaleCLIs = saved }(tailscaleCLIs)
+	tailscaleCLIs = []string{"tailscale"}
 	if got := detectOrigins(); got != "http://localhost:0" {
 		t.Fatalf("detectOrigins without tailscale = %q", got)
 	}

@@ -11,6 +11,9 @@ go test ./features/access/         # one Go package
 A change is done when `./scripts/check.sh` ends with `== all green`. It needs
 `go`, `node` and `tmux`, and no sudo: Playwright downloads its own Chromium
 and WebKit (Safari's engine, for `e2e/ios.spec.js`). It runs on Linux and macOS.
+On Linux WebKit also needs system libraries (`sudo npx --prefix e2e playwright
+install-deps webkit`); without them the check skips `ios.spec.js` and says so.
+Touching iOS code? Run it where WebKit starts.
 `--e2e` skips vet and unit tests for a fast loop; extra arguments go to
 Playwright. Run the full check before you call it done.
 

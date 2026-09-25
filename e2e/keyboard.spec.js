@@ -72,8 +72,12 @@ test('the shortcut never reaches the terminal', async ({ page, host }) => {
   await page.keyboard.press('Escape');
   // tmux 3.5+ queries the terminal on attach (DA1, DA2, OSC 10/11 colours), and
   // xterm's answers can go out after the anchor: replies, not keystrokes.
-  const reply = /^\x1b(\[[?>][\d;]*c|\]1[01];rgb:[\da-f/]+\x1b\\)$/;
-  expect(sent.filter((b) => !reply.test(b.toString()))).toEqual([]); // not one keystroke reached the shell
+  // The page's own isReply decides, so this test cannot drift from terminal.js.
+  const keystrokes = await page.evaluate(async (frames) => {
+    const { isReply } = await import('/features/terminal.js');
+    return frames.filter((f) => !isReply(new Uint8Array(f))).map((f) => String.fromCharCode(...f));
+  }, sent.map((b) => [...b]));
+  expect(keystrokes).toEqual([]); // not one keystroke reached the shell
   await page.keyboard.press('Enter');
   await expect.poll(() => host.capture(host.windows()[0].id)).toContain('linha-6-resto');
 });

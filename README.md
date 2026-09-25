@@ -34,6 +34,8 @@ remotty install
 On Linux that is a systemd user service; run `loginctl enable-linger` to keep it
 up while you are logged out. On macOS it is a launchd agent in
 `~/Library/LaunchAgents`, started at login, with logs in `~/Library/Logs/remotty.log`.
+macOS has no linger: installed over ssh with no one logged in at the Mac, it
+runs until logout, and after a reboot it starts only once someone logs in there.
 It records your current `PATH`, so run it from the shell whose `tmux` and
 `claude` you want the agents to use.
 

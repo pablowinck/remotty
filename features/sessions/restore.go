@@ -73,31 +73,71 @@ func (c Claude) Stopped(since time.Time) ([]Conversation, error) {
 // start time recorded in the file must match the live process too. An unknown
 // start time never matches: an empty string on both sides is not a live process.
 func (c Claude) running() map[string]bool {
-	ids := map[string]bool{}
+	type registry struct {
+		PID       int    `json:"pid"`
+		SessionID string `json:"sessionId"`
+		ProcStart string `json:"procStart"`
+	}
+	var regs []registry
+	var pids []int
 	files, _ := filepath.Glob(filepath.Join(c.Home, "sessions", "*.json"))
 	for _, f := range files {
-		var reg struct {
-			PID       int    `json:"pid"`
-			SessionID string `json:"sessionId"`
-			ProcStart string `json:"procStart"`
+		var reg registry
+		if b, err := os.ReadFile(f); err == nil && json.Unmarshal(b, &reg) == nil && reg.ProcStart != "" {
+			regs, pids = append(regs, reg), append(pids, reg.PID)
 		}
-		if b, err := os.ReadFile(f); err == nil && json.Unmarshal(b, &reg) == nil && reg.ProcStart != "" && procStart(reg.PID) == reg.ProcStart {
+	}
+	starts := procStarts(pids)
+	ids := map[string]bool{}
+	for _, reg := range regs {
+		if starts[reg.PID] == reg.ProcStart {
 			ids[reg.SessionID] = true
 		}
 	}
 	return ids
 }
 
-// procStart is the process start time in the format Claude Code records it:
-// on Linux field 22 of /proc/PID/stat, elsewhere (macOS) what
-// `LC_ALL=C TZ=UTC ps -o lstart= -p PID` prints, trimmed.
-func procStart(pid int) string {
-	if runtime.GOOS != "linux" {
-		cmd := exec.Command("ps", "-o", "lstart=", "-p", strconv.Itoa(pid))
-		cmd.Env = append(os.Environ(), "LC_ALL=C", "TZ=UTC")
-		out, _ := cmd.Output()
-		return strings.TrimSpace(string(out))
+// procStarts maps each live pid to its start time in the format Claude Code
+// records it: on Linux field 22 of /proc/PID/stat, elsewhere (macOS) what
+// `LC_ALL=C TZ=UTC ps -o lstart= -p PID` prints, trimmed. One ps for all pids:
+// ~/.claude/sessions keeps hundreds of stale files, one fork each was slow.
+func procStarts(pids []int) map[int]string {
+	if runtime.GOOS == "linux" {
+		starts := map[int]string{}
+		for _, pid := range pids {
+			if s := procStat(pid); s != "" {
+				starts[pid] = s
+			}
+		}
+		return starts
 	}
+	if len(pids) == 0 {
+		return nil
+	}
+	list := make([]string, len(pids))
+	for i, pid := range pids {
+		list[i] = strconv.Itoa(pid)
+	}
+	cmd := exec.Command("ps", "-o", "pid=,lstart=", "-p", strings.Join(list, ","))
+	cmd.Env = append(os.Environ(), "LC_ALL=C", "TZ=UTC")
+	out, _ := cmd.Output() // exits 1 when some pid is gone, still printing the others
+	return parsePS(string(out))
+}
+
+// parsePS reads `ps -o pid=,lstart=` lines. lstart pads a one-digit day with a
+// second space ("Sep  5"), as Claude Code stores it, so the rest is kept as is.
+func parsePS(out string) map[int]string {
+	starts := map[int]string{}
+	for _, line := range strings.Split(out, "\n") {
+		pid, start, _ := strings.Cut(strings.TrimSpace(line), " ")
+		if n, err := strconv.Atoi(pid); err == nil {
+			starts[n] = strings.TrimSpace(start)
+		}
+	}
+	return starts
+}
+
+func procStat(pid int) string {
 	b, err := os.ReadFile(filepath.Join("/proc", strconv.Itoa(pid), "stat"))
 	if err != nil {
 		return ""

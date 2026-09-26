@@ -61,6 +61,7 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
       return;
     }
     render();
+    syncUndoTab();
     // The open window was closed elsewhere (ssh, an agent exiting): follow tmux
     // to a window that still exists instead of retrying a dead one forever.
     if (current && !windows.some((w) => w.id === current)) {
@@ -427,7 +428,47 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
     } catch (e) {
       onStatus(e.message.includes('nothing') ? 'Nothing to reopen' : e.message);
     }
+    syncUndoTab();
   }
+
+  const restoreButton = document.getElementById('restore');
+  // ↶ next to "+", on a phone: tap reopens the last closed agent, hold offers
+  // Restore too (the desktop's button, which the phone strip has no room for).
+  const undoTab = document.getElementById('undo-tab');
+  const undoMenu = document.getElementById('undo-menu');
+  async function syncUndoTab() {
+    try {
+      const { count } = await api('GET', '/api/windows/reopenable');
+      undoTab.hidden = count === 0 && restoreButton.hidden; // without Restore it only shows when useful
+      undoTab.dataset.count = count;
+    } catch {} // the next poll tries again
+  }
+  let undoHold = 0;
+  let undoHeld = false;
+  undoTab.addEventListener('pointerdown', (e) => {
+    e.preventDefault(); // keep the soft keyboard as it was
+    undoHeld = false;
+    undoHold = setTimeout(() => {
+      undoHeld = true;
+      undoMenu.querySelector('[value="undo"]').disabled = undoTab.dataset.count === '0';
+      undoMenu.querySelector('[value="restore"]').hidden = restoreButton.hidden;
+      undoMenu.showModal();
+      undoMenu.openedAt = performance.now();
+    }, HOLD_MS);
+  });
+  for (const t of ['pointerup', 'pointercancel', 'pointerleave']) undoTab.addEventListener(t, () => clearTimeout(undoHold));
+  undoTab.addEventListener('click', () => {
+    if (undoHeld) return; // the hold opened the menu; its release is not a tap
+    reopenLast();
+  });
+  undoMenu.addEventListener('click', (e) => {
+    const action = e.target.closest('button')?.value;
+    if (e.target === undoMenu && performance.now() - undoMenu.openedAt < 400) return; // the finger that opened it
+    if (!action && e.target !== undoMenu) return;
+    undoMenu.close();
+    if (action === 'undo') reopenLast();
+    if (action === 'restore') restoreButton.click();
+  });
 
   // Hide the window for a while (⌘Z brings it back) and move to its neighbour.
   async function closeUndoable(id) {
@@ -440,6 +481,7 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
       return onError(e);
     }
     offerUndo();
+    syncUndoTab();
     await refresh();
     if (id === current) open(next ? next.id : null);
   }
@@ -627,7 +669,6 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
 
   // Restore: after a crash, reopen every Claude Code conversation that stopped.
   // The host answers 404 when it runs without -restore-command; then the button goes.
-  const restoreButton = document.getElementById('restore');
   restoreButton.addEventListener('click', async () => {
     restoreButton.disabled = true;
     try {

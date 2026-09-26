@@ -55,6 +55,21 @@ func (t Tmux) CloseUndoable(id string) error {
 	return err
 }
 
+// Reopenable counts the closed windows still inside their grace period.
+func (t Tmux) Reopenable() int {
+	out, err := t.run("list-windows", "-t", "="+t.closedSession(), "-F", "#{@closed}")
+	if err != nil {
+		return 0
+	}
+	n := 0
+	for _, stamp := range strings.Split(strings.TrimSpace(out), "\n") {
+		if stamp != "" {
+			n++
+		}
+	}
+	return n
+}
+
 // ReopenLast moves the most recently closed window back to the end of the
 // session and returns its id. Reopening clears @closed, which disarms its timer.
 func (t Tmux) ReopenLast() (string, error) {
@@ -84,6 +99,9 @@ func (t Tmux) UndoRoutes(mux *http.ServeMux, wrap func(http.HandlerFunc) http.Ha
 		if respond(w, t.CloseUndoable(r.PathValue("id"))) {
 			w.WriteHeader(http.StatusNoContent)
 		}
+	}))
+	mux.HandleFunc("GET /api/windows/reopenable", wrap(func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusOK, map[string]int{"count": t.Reopenable()})
 	}))
 	mux.HandleFunc("POST /api/windows/reopen", wrap(func(w http.ResponseWriter, r *http.Request) {
 		id, err := t.ReopenLast()

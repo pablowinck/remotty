@@ -39,6 +39,7 @@
       </ul>
       <div id="tab-actions">
         <button id="new-tab" type="button" aria-label="New agent">+</button>
+        <button id="undo-tab" type="button" aria-label="Reopen the last closed agent" title="Reopen the last closed agent (hold: Restore)" hidden>↶</button>
         <button id="restore" type="button" title="Reopen the Claude Code conversations that stopped in the last 2 hours">Restore</button>
       </div>
       <div id="tabs-resize" role="separator" tabindex="0" aria-orientation="vertical" aria-controls="tabs"
@@ -68,6 +69,11 @@
     <dialog id="hold-menu" aria-label="Agent">
       <p class="hold-menu-name"></p>
       <button type="button" value="close" class="danger">Close</button>
+      <button type="button" value="cancel" autofocus>Cancel</button>
+    </dialog>
+    <dialog id="undo-menu" aria-label="Reopen">
+      <button type="button" value="undo">Reopen last closed</button>
+      <button type="button" value="restore">Restore stopped Claude conversations</button>
       <button type="button" value="cancel" autofocus>Cancel</button>
     </dialog>
   </div>

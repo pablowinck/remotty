@@ -83,12 +83,47 @@ test.describe('on a phone', () => {
     expect(names(host)).toEqual(['um', 'dois', 'tres']); // anchor: Cancel closes nothing
 
     await touch(page, [['touchStart', at, 500], ['touchEnd', null]]);
-    await page.getByRole('button', { name: 'Close' }).tap();
+    await page.getByRole('button', { name: 'Close', exact: true }).tap();
     await expect.poll(() => names(host)).toEqual(['um', 'tres']);
     await expect(row(page, 'dois')).toHaveCount(0);
 
     await page.getByRole('button', { name: 'Undo' }).tap();
     await expect.poll(() => host.windows().map((w) => w.id)).toContain(dois); // the same window, still running
+  });
+
+  // Local: the phone strip has no Restore and no ⌘Z. A ↶ next to "+" shows while
+  // an agent can be reopened: a tap reopens the last closed one.
+  test('the ↶ next to + reopens the last closed agent', async ({ page, host }) => {
+    setup(host);
+    await pair(page, host);
+    const undo = page.getByRole('button', { name: 'Reopen the last closed agent' });
+    await expect(undo).toBeVisible(); // always there: holding it is the phone's only way to Restore
+    await undo.tap();
+    await expect(page.locator('#status')).toContainText('Nothing to reopen'); // nothing closed yet
+    const dois = host.windows().find((w) => w.name === 'dois').id;
+    const b = await row(page, 'dois').boundingBox();
+    await touch(page, [['touchStart', { x: b.x + b.width / 2, y: b.y + b.height / 2 }, 500], ['touchEnd', null]]);
+    await page.getByRole('button', { name: 'Close', exact: true }).tap();
+    await expect.poll(() => names(host)).toEqual(['um', 'tres']);
+    await undo.tap();
+    await expect.poll(() => host.windows().map((w) => w.id)).toContain(dois); // the same window, still running
+    await expect(page.locator('#tab-list li[aria-current="true"] .name')).toHaveText('dois');
+  });
+
+  test('holding the ↶ offers Restore, as the desktop button does', async ({ page, host }) => {
+    setup(host);
+    await pair(page, host);
+    const b = await row(page, 'dois').boundingBox();
+    await touch(page, [['touchStart', { x: b.x + b.width / 2, y: b.y + b.height / 2 }, 500], ['touchEnd', null]]);
+    await page.getByRole('button', { name: 'Close', exact: true }).tap();
+    const u = await page.getByRole('button', { name: 'Reopen the last closed agent' }).boundingBox();
+    await touch(page, [['touchStart', { x: u.x + u.width / 2, y: u.y + u.height / 2 }, 600], ['touchEnd', null]]);
+    const menu = page.locator('#undo-menu');
+    await expect(menu).toBeVisible();
+    await expect(menu.getByRole('button', { name: 'Restore stopped Claude conversations' })).toBeVisible();
+    await menu.getByRole('button', { name: 'Restore stopped Claude conversations' }).tap();
+    await expect(page.locator('#status')).toContainText('Nothing to reopen'); // no Claude transcripts in the test HOME
+    expect(names(host)).toEqual(['um', 'tres']); // anchor: Restore is not the ↶ tap
   });
 
   test('a quick tap on a tab opens it, without the menu', async ({ page, host }) => {

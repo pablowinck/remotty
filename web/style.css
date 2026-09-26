@@ -85,6 +85,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
 #tab-list li.folder, #tab-list li.in-folder { padding-left: calc(.6rem + var(--depth, 0) * 1rem); } /* --depth: set per row in sessions.js */
 #tab-actions { display: flex; gap: .3rem; margin: .3rem; }
 #new-tab { flex: 1; font-size: 1.2rem; }
+#undo-tab { display: none; } /* phone only: the desktop has ⌘Z and the Restore button */
 #restore { flex: none; color: var(--muted); }
 
 /* The ⋯ menu. A popover sits centred by default; sessions.js places it by the button. */
@@ -169,8 +170,9 @@ kbd {
   #tabs:has(#find:focus:not(:placeholder-shown)) #tab-list { display: flex; width: 100%; }
   /* "+" stays visible: on a phone there is no Ctrl+Shift+K, and the magnifier
      alone does not say "create". It opens the finder, which creates. */
-  #tab-actions { flex: none; order: -1; margin: .3rem 0 .3rem .3rem; }
+  #tab-actions { flex: none; order: -1; display: flex; gap: .3rem; margin: .3rem 0 .3rem .3rem; }
   #new-tab { flex: none; width: 2.9rem; min-height: 2.75rem; padding: 0; }
+  #undo-tab { display: block; flex: none; width: 2.9rem; min-height: 2.75rem; padding: 0; font-size: 1.2rem; }
   #restore { display: none; } /* a rare action; on a phone the strip has no room for it */
   #tabs:has(#find:focus) #tab-actions { display: none; }
   /* Two rows of equal keys instead of a strip that scrolls: every key visible
@@ -192,10 +194,11 @@ kbd {
 }
 
 /* Local: the phone's tab menu, opened by holding a tab (it has no ×). */
-#hold-menu { width: min(18rem, calc(100% - 2rem)); padding: .9rem; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); color: var(--text); }
-#hold-menu::backdrop { background: rgb(0 0 0 / .5); }
+#hold-menu, #undo-menu { width: min(18rem, calc(100% - 2rem)); padding: .9rem; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); color: var(--text); }
+#hold-menu::backdrop, #undo-menu::backdrop { background: rgb(0 0 0 / .5); }
 #hold-menu .hold-menu-name { margin: 0 0 .7rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-#hold-menu button { display: block; width: 100%; min-height: 2.75rem; margin-top: .4rem; }
+#hold-menu button, #undo-menu button { display: block; width: 100%; min-height: 2.75rem; margin-top: .4rem; }
+#undo-menu button:disabled { opacity: .4; }
 #hold-menu .danger { color: var(--bell); }
 #undo-close { position: fixed; left: 50%; bottom: 3.4rem; transform: translateX(-50%); z-index: 2; min-height: 2.5rem; padding: .4rem 1.1rem; background: var(--accent); color: #000; font-weight: 600; }
 

@@ -172,7 +172,8 @@ kbd {
      alone does not say "create". It opens the finder, which creates. */
   #tab-actions { flex: none; order: -1; display: flex; gap: .3rem; margin: .3rem 0 .3rem .3rem; }
   #new-tab { flex: none; width: 2.9rem; min-height: 2.75rem; padding: 0; }
-  #undo-tab { display: block; flex: none; width: 2.9rem; min-height: 2.75rem; padding: 0; font-size: 1.2rem; }
+  /* An SVG, like the other icons: the "↶" glyph looked different, and crooked, in every font. */
+  #undo-tab { display: block; flex: none; width: 2.9rem; min-height: 2.75rem; padding: 0; background: var(--panel) url(/undo.svg) no-repeat 50% 50% / 1.25rem; }
   #restore { display: none; } /* a rare action; on a phone the strip has no room for it */
   #tabs:has(#find:focus) #tab-actions { display: none; }
   /* Two rows of equal keys instead of a strip that scrolls: every key visible

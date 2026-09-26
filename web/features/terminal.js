@@ -181,9 +181,9 @@ function wireKeyBar({ send, toggleCtrl, focus, onStatus }) {
 // The history lives in tmux, not in xterm, so a finger drag has to become the
 // mouse wheel that tmux understands. xterm turns wheel events into the mouse
 // sequences tmux enters copy mode on, so we synthesise wheel events: one per
-// line of travel. Needs `set -g mouse on` in tmux, like wheel scrolling anywhere.
-const LINE_PX = 18;
-
+// row of travel, so the text keeps up with the finger. Line mode, not pixels:
+// xterm damps small pixel deltas and dropped about two wheels in three.
+// Needs `set -g mouse on` in tmux, like wheel scrolling anywhere.
 // With tmux mouse on, a drag selects in tmux copy mode, and tmux hands the
 // copied text out as OSC 52 ("52;c;<base64>"). Write-only on purpose: a "?"
 // query would let any program read the user's clipboard, so it is swallowed.
@@ -206,17 +206,18 @@ function wireTouchScroll(el, term) {
   }, { passive: true });
   el.addEventListener('touchmove', (e) => {
     if (lastY === null || e.touches.length !== 1) return;
+    e.preventDefault(); // keep the page from bouncing instead
     const y = e.touches[0].clientY;
-    const lines = Math.trunc((y - lastY) / LINE_PX);
-    if (!lines) return;
-    lastY += lines * LINE_PX;
     const target = term.element.querySelector('.xterm-screen');
+    const rowPx = target.clientHeight / term.rows;
+    const lines = Math.trunc((y - lastY) / rowPx);
+    if (!lines) return;
+    lastY += lines * rowPx;
     const at = { clientX: e.touches[0].clientX, clientY: y, bubbles: true, cancelable: true };
     for (let i = 0; i < Math.abs(lines); i++) {
       // Finger down = content down = look back in history = wheel up.
-      target.dispatchEvent(new WheelEvent('wheel', { ...at, deltaY: lines > 0 ? -LINE_PX : LINE_PX, deltaMode: 0 }));
+      target.dispatchEvent(new WheelEvent('wheel', { ...at, deltaY: lines > 0 ? -1 : 1, deltaMode: WheelEvent.DOM_DELTA_LINE }));
     }
-    e.preventDefault(); // keep the page from bouncing instead
   }, { passive: false });
   el.addEventListener('touchend', () => { lastY = null; });
 }

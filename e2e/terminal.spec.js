@@ -123,3 +123,29 @@ test('dragging a finger down scrolls back into the tmux history', async ({ page,
   await expect.poll(topLine).toBeLessThan(before - 10);
   expect(host.tmux('display-message', '-p', '-t', host.windows()[0].id, '#{pane_in_mode}').trim()).toBe('1');
 });
+
+// Claude Code (fullscreen) takes the wheel itself, one line per notch under
+// tmux: the content only keeps up with the finger if every row of travel
+// reaches it as one wheel. xterm used to swallow ~2 of 3 small pixel deltas.
+test('a finger drag reaches a mouse-reporting app as one wheel per row', async ({ page, host }) => {
+  host.tmux('set-option', '-g', 'mouse', 'on');
+  await pair(page, host);
+  // SGR mouse reporting on; the tty echoes each report, e.g. ^[[<64;60;20M.
+  await typeInTerminal(page, "printf '\\033[?1000h\\033[?1006h'; echo pronto-$((3*5)); cat -v\n");
+  await expect(page.locator('#terminal .xterm-rows')).toContainText('pronto-15');
+  const box = await page.locator('#terminal .xterm-screen').boundingBox();
+  const rows = await page.evaluate(() => document.querySelectorAll('#terminal .xterm-rows > div').length);
+  const client = await page.context().newCDPSession(page);
+  const point = (y) => [{ x: box.x + box.width / 2, y }];
+  const fromY = box.y + 40;
+  const toY = box.y + box.height - 40;
+  await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: point(fromY) });
+  for (let i = 1; i <= 20; i++) {
+    await client.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: point(fromY + ((toY - fromY) * i) / 20) });
+  }
+  await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  const travelled = (toY - fromY) / (box.height / rows);
+  const wheels = () => (host.capture(host.windows()[0].id).match(/\[<64;/g) || []).length;
+  await expect.poll(wheels).toBeGreaterThanOrEqual(Math.floor(travelled) - 1);
+  expect(wheels()).toBeLessThanOrEqual(Math.ceil(travelled) + 1);
+});

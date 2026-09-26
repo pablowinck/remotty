@@ -307,7 +307,7 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
   list.addEventListener('pointerdown', (e) => {
     const li = e.target.closest('li[data-id], li.folder');
     if (!li || e.button !== 0 || e.target.closest('.more') || query()) return;
-    drag = { li, x: e.clientX, y: e.clientY, on: false, pointerId: e.pointerId };
+    drag = { li, x: e.clientX, y: e.clientY, on: false, moved: false, pointerId: e.pointerId, pointerType: e.pointerType };
     dragged = false;
     if (e.pointerType === 'touch') drag.hold = setTimeout(() => startDrag(), HOLD_MS);
   });
@@ -322,6 +322,7 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
       if (travel < DRAG_PX) return;
       startDrag();
     }
+    if (travel >= DRAG_PX) drag.moved = true;
     e.preventDefault();
     markDrop(e);
   });
@@ -373,10 +374,76 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
     const spot = e && dropSpot(e, d.li);
     d.li.classList.remove('dragging');
     timer = setInterval(refresh, POLL_MS);
-    if (spot) await drop(d.li, spot);
+    // Local: held still and let go on a phone = the tab's menu, not a drop.
+    if (d.pointerType === 'touch' && !d.moved && d.li.dataset.id) {
+      render();
+      showHoldMenu(d.li.dataset.id);
+    } else if (spot) await drop(d.li, spot);
     else render();
     setTimeout(() => (dragged = false)); // after the click this pointerup produces
   }
+
+  // Local: the phone has no × on its tabs. A hold opens this menu instead.
+  const holdMenu = document.getElementById('hold-menu');
+  function showHoldMenu(id) {
+    const w = windows.find((x) => x.id === id);
+    if (!w) return;
+    holdMenu.dataset.id = id;
+    holdMenu.querySelector('.hold-menu-name').textContent = w.name; // set by programs: text only
+    holdMenu.showModal();
+    holdMenu.openedAt = performance.now();
+  }
+  holdMenu.addEventListener('click', async (e) => {
+    const action = e.target.closest('button')?.value;
+    // The click of the very finger that opened the menu lands on its backdrop.
+    if (e.target === holdMenu && performance.now() - holdMenu.openedAt < 400) return;
+    if (e.target === holdMenu || action === 'cancel') return holdMenu.close(); // tap outside the card
+    if (action !== 'close') return;
+    holdMenu.close();
+    await closeUndoable(holdMenu.dataset.id);
+  });
+
+  // A phone has no ⌘Z: the status line carries an Undo button for a few seconds.
+  const undo = document.getElementById('undo-close');
+  let undoTimer = 0;
+  function offerUndo() {
+    onStatus('Closed.');
+    undo.hidden = false;
+    clearTimeout(undoTimer);
+    undoTimer = setTimeout(() => (undo.hidden = true), 8000);
+  }
+  undo.addEventListener('pointerdown', (e) => e.preventDefault()); // keep the soft keyboard as it was
+  undo.addEventListener('click', () => {
+    undo.hidden = true;
+    reopenLast();
+  });
+
+  async function reopenLast() {
+    try {
+      const { id } = await api('POST', '/api/windows/reopen');
+      onStatus('');
+      await refresh();
+      open(id);
+    } catch (e) {
+      onStatus(e.message.includes('nothing') ? 'Nothing to reopen' : e.message);
+    }
+  }
+
+  // Hide the window for a while (⌘Z brings it back) and move to its neighbour.
+  async function closeUndoable(id) {
+    const at = windows.findIndex((w) => w.id === id);
+    if (at < 0) return;
+    const next = windows[at + 1] || windows[at - 1];
+    try {
+      await api('POST', `/api/windows/${encodeURIComponent(id)}/close`);
+    } catch (e) {
+      return onError(e);
+    }
+    offerUndo();
+    await refresh();
+    if (id === current) open(next ? next.id : null);
+  }
+
 
   // Dropped next to a window, the dragged one also joins that window's folder,
   // so dragging beside a loose tab is how a window leaves its folder.
@@ -616,28 +683,7 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
       render();
     },
     // ⌘W: close the open agent, undoably (⌘Z), and move to its neighbour.
-    async closeCurrent() {
-      const at = windows.findIndex((w) => w.id === current);
-      if (at < 0) return;
-      const next = windows[at + 1] || windows[at - 1];
-      try {
-        await api('POST', `/api/windows/${encodeURIComponent(current)}/close`);
-      } catch (e) {
-        return onError(e);
-      }
-      onStatus('Closed. ⌘Z reopens it.');
-      await refresh();
-      open(next ? next.id : null);
-    },
-    async reopenLast() {
-      try {
-        const { id } = await api('POST', '/api/windows/reopen');
-        onStatus('');
-        await refresh();
-        open(id);
-      } catch (e) {
-        onStatus(e.message.includes('nothing') ? 'Nothing to reopen' : e.message);
-      }
-    },
+    closeCurrent: () => current && closeUndoable(current),
+    reopenLast,
   };
 }

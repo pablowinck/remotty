@@ -65,6 +65,40 @@ test.describe('on a phone', () => {
     }
   };
 
+  // Local: phone tabs have no ×. Held still and let go, a tab opens a menu to
+  // close it; Undo in the status line brings the same agent back.
+  test('holding a tab still opens its menu; Close hides it and Undo brings it back', async ({ page, host }) => {
+    setup(host);
+    await pair(page, host);
+    const dois = host.windows().find((w) => w.name === 'dois').id;
+    const b = await row(page, 'dois').boundingBox();
+    const at = { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+
+    await touch(page, [['touchStart', at, 500], ['touchEnd', null]]);
+    const menu = page.locator('#hold-menu');
+    await expect(menu).toBeVisible();
+    await expect(menu.locator('.hold-menu-name')).toHaveText('dois');
+    await page.getByRole('button', { name: 'Cancel' }).tap();
+    await expect(menu).toBeHidden();
+    expect(names(host)).toEqual(['um', 'dois', 'tres']); // anchor: Cancel closes nothing
+
+    await touch(page, [['touchStart', at, 500], ['touchEnd', null]]);
+    await page.getByRole('button', { name: 'Close' }).tap();
+    await expect.poll(() => names(host)).toEqual(['um', 'tres']);
+    await expect(row(page, 'dois')).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Undo' }).tap();
+    await expect.poll(() => host.windows().map((w) => w.id)).toContain(dois); // the same window, still running
+  });
+
+  test('a quick tap on a tab opens it, without the menu', async ({ page, host }) => {
+    setup(host);
+    await pair(page, host);
+    await row(page, 'tres').tap();
+    await expect(page.locator('#tab-list li[aria-current="true"] .name')).toHaveText('tres');
+    await expect(page.locator('#hold-menu')).toBeHidden();
+  });
+
   test('holding a tab, then sliding it, reorders; a plain swipe does not', async ({ page, host }) => {
     setup(host);
     await pair(page, host);

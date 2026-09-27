@@ -76,6 +76,8 @@ async function attach(blob, name, deps) {
 function wireRecorder(button, deps) {
   let recorder = null;
   const setRecording = (on) => button.setAttribute('aria-pressed', String(on));
+  // Locked by hand or switched away: the phone cuts the mic, so send what was said.
+  document.addEventListener('visibilitychange', () => document.hidden && recorder?.state === 'recording' && recorder.stop());
 
   button.addEventListener('click', async () => {
     if (recorder) return recorder.stop();
@@ -87,9 +89,11 @@ function wireRecorder(button, deps) {
       return;
     }
     const chunks = [];
+    const screen = keepScreenOn();
     recorder = new MediaRecorder(stream);
     recorder.ondataavailable = (e) => e.data.size && chunks.push(e.data);
     recorder.onstop = () => {
+      screen.then((lock) => lock?.release());
       stream.getTracks().forEach((t) => t.stop()); // release the mic (and its indicator) at once
       const type = recorder.mimeType || 'audio/webm';
       recorder = null;
@@ -102,4 +106,14 @@ function wireRecorder(button, deps) {
     setRecording(true);
     deps.onStatus('Recording… tap the mic again to send');
   });
+}
+
+// A phone that dimmed and locked mid-note cut the mic and lost the note.
+// Wake Lock: iOS 16.4+, and 18.4+ as a Home Screen app.
+async function keepScreenOn() {
+  try {
+    return await navigator.wakeLock?.request('screen');
+  } catch {
+    return null; // refused (Low Power Mode, low battery): record anyway
+  }
 }

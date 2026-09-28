@@ -45,6 +45,7 @@ export function createTerminal({ onStatus, isShortcut = () => false }) {
   // xterm measures the cell once, at open: a webfont that arrives later would
   // leave it measured on the fallback. Re-measure when it lands.
   wireClipboard(term);
+  wireLinks(term);
 
   let socket = null;
   let windowId = null;
@@ -234,6 +235,45 @@ function wireClipboard(term) {
     } catch {} // malformed base64: ignore, never echo anything back
     return true;
   });
+}
+
+// Local: ⌘-click (Ctrl-click off Apple) opens a URL, as in Ghostty. Plain-text
+// URLs are found here; OSC 8 links arrive through linkHandler. Only http(s):
+// the text comes from programs in the terminal.
+const URL_RE = /https?:\/\/[^\s<>"'`]*[^\s<>"'`.,;:!?)\]}]/g;
+function openLink(e, url) {
+  if ((APPLE ? e.metaKey : e.ctrlKey) && /^https?:\/\//.test(url)) window.open(url, '_blank', 'noopener');
+}
+function wireLinks(term) {
+  term.options.linkHandler = { activate: openLink };
+  term.registerLinkProvider({
+    provideLinks(y, done) {
+      const line = term.buffer.active.getLine(y - 1);
+      if (!line) return done(undefined);
+      const { text, colOf } = cellText(line);
+      const links = [...text.matchAll(URL_RE)].map((m) => ({
+        text: m[0],
+        range: { start: { x: colOf[m.index], y }, end: { x: colOf[m.index + m[0].length - 1], y } },
+        activate: openLink,
+      }));
+      done(links.length ? links : undefined);
+    },
+  });
+}
+
+// The line as a string, and the 1-based column of each of its characters (a
+// wide character, like an emoji before the URL, takes two columns).
+function cellText(line) {
+  let text = '';
+  const colOf = [];
+  for (let x = 0; x < line.length; x++) {
+    const cell = line.getCell(x);
+    if (!cell || cell.getWidth() === 0) continue;
+    const chars = cell.getChars() || ' ';
+    text += chars;
+    for (let i = 0; i < chars.length; i++) colOf.push(x + 1);
+  }
+  return { text, colOf };
 }
 
 // Local: scroll at Ghostty's pace (mouse-scroll-multiplier precision:1): one

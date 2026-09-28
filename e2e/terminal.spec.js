@@ -192,3 +192,37 @@ test('a finger drag reaches a mouse-reporting app as one wheel per row', async (
   await expect.poll(wheels).toBeGreaterThanOrEqual(Math.floor(travelled) - 1);
   expect(wheels()).toBeLessThanOrEqual(Math.ceil(travelled) + 1);
 });
+
+// Local: ⌘-click (Ctrl-click off Apple) on a URL opens it, as in Ghostty, even
+// with tmux mouse on. Plain text and OSC 8 links (what Claude Code prints).
+test('a modifier-click on a URL opens it in a new tab', async ({ page, host }) => {
+  host.tmux('set-option', '-g', 'mouse', 'on');
+  await page.addInitScript(() => { window.__opened = []; window.open = (u) => { window.__opened.push(u); return null; }; });
+  await pair(page, host);
+  const mod = await page.evaluate(() => (/Mac|iPhone|iPad|iPod/.test(navigator.platform) ? 'Meta' : 'Control'));
+  await typeInTerminal(page, "clear; echo x-https://example.com/a?b=$((3*5)) ; printf '\\e]8;;https://example.org/osc\\e\\\\veja-aqui\\e]8;;\\e\\\\\\n'\n");
+  const rows = page.locator('#terminal .xterm-rows');
+  await expect(rows).toContainText('x-https://example.com/a?b=15'); // only execution produces 15
+  await expect(rows).toContainText('veja-aqui');
+
+  const box = await page.locator('#terminal .xterm-screen').boundingBox();
+  const cols = Number(host.tmux('display', '-p', '-t', host.windows()[0].id, '#{pane_width}').trim());
+  const cell = { h: await page.evaluate(() => document.querySelector('#terminal .xterm-rows > div').getBoundingClientRect().height), w: box.width / cols };
+  const lineOf = async (text) => (await rows.locator('> div').allTextContents()).findIndex((l) => l.includes(text));
+  const clickAt = async (text, offset, withMod) => {
+    const y = box.y + (await lineOf(text)) * cell.h + cell.h / 2;
+    await page.mouse.move(box.x + offset * cell.w, y);
+    await page.waitForTimeout(200); // xterm finds links on hover
+    if (withMod) await page.keyboard.down(mod);
+    await page.mouse.click(box.x + offset * cell.w, y);
+    if (withMod) await page.keyboard.up(mod);
+  };
+
+  await clickAt('x-https', 8, false);
+  await page.waitForTimeout(300);
+  expect(await page.evaluate(() => window.__opened)).toEqual([]); // a plain click still goes to tmux
+  await clickAt('x-https', 8, true);
+  await expect.poll(() => page.evaluate(() => window.__opened)).toEqual(['https://example.com/a?b=15']);
+  await clickAt('veja-aqui', 3, true);
+  await expect.poll(() => page.evaluate(() => window.__opened)).toEqual(['https://example.com/a?b=15', 'https://example.org/osc']);
+});

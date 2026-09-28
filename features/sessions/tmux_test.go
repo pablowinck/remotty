@@ -131,6 +131,22 @@ func TestAttachToMissingWindowIsRefused(t *testing.T) {
 	}
 }
 
+// Local: every attach is a browser tab (re)connecting, so the hyperlinks
+// feature must be added once, not once per reconnect.
+func TestAttachAddsHyperlinksOnce(t *testing.T) {
+	tm := newTestTmux(t)
+	windows, _ := tm.List()
+	for i := 0; i < 3; i++ {
+		if _, err := tm.AttachCommand(windows[0].ID); err != nil {
+			t.Fatal(err)
+		}
+	}
+	out, _ := tm.run("show-options", "-s", "terminal-features")
+	if n := strings.Count(out, "xterm*:hyperlinks"); n != 1 {
+		t.Fatalf("hyperlinks listed %d times, want 1:\n%s", n, out)
+	}
+}
+
 // The session can vanish under a running server (kill-server over ssh, the last
 // window exiting). The API must bring it back instead of failing forever.
 func TestListAndCreateRecoverAfterTheSessionDies(t *testing.T) {

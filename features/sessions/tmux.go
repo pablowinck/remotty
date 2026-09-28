@@ -203,6 +203,7 @@ func (t Tmux) AttachCommand(id string) ([]string, error) {
 	if !t.hasWindow(id) {
 		return nil, ErrNoWindow
 	}
+	t.forwardLinks()
 	return []string{
 		"tmux", "-S", t.Socket,
 		"new-session", "-t", "=" + t.Session,
@@ -214,6 +215,15 @@ func (t Tmux) AttachCommand(id string) ([]string, error) {
 		";", "set-option", "-s", "set-clipboard", "on",
 		";", "select-window", "-t", id,
 	}, nil
+}
+
+// Local: tmux strips OSC 8 links (Claude Code prints them) unless the outer
+// terminal has the hyperlinks feature. It is read when a client attaches, so it
+// is set before; appended once, never over what the user configured.
+func (t Tmux) forwardLinks() {
+	if out, _ := t.run("show-options", "-s", "terminal-features"); !strings.Contains(out, "xterm*:hyperlinks") {
+		t.run("set-option", "-sa", "terminal-features", "xterm*:hyperlinks")
+	}
 }
 
 // Names are passed as argv, never through a shell. What remains: control

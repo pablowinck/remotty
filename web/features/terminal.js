@@ -241,8 +241,15 @@ function wireClipboard(term) {
 // URLs are found here; OSC 8 links arrive through linkHandler. Only http(s):
 // the text comes from programs in the terminal.
 const URL_RE = /https?:\/\/[^\s<>"'`]*[^\s<>"'`.,;:!?)\]}]/g;
+// On the host itself the host opens it, in the default browser (Arc), not in the
+// Chrome app showing this page. Anywhere else (the phone) it opens right here.
+const ON_HOST = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
 function openLink(e, url) {
-  if ((APPLE ? e.metaKey : e.ctrlKey) && /^https?:\/\//.test(url)) window.open(url, '_blank', 'noopener');
+  if (!(APPLE ? e.metaKey : e.ctrlKey) || !/^https?:\/\//.test(url)) return;
+  const here = () => window.open(url, '_blank', 'noopener');
+  if (!ON_HOST) return here();
+  fetch('/api/open', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) })
+    .then((r) => r.ok || here(), here);
 }
 function wireLinks(term) {
   term.options.linkHandler = { activate: openLink };

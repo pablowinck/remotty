@@ -195,7 +195,7 @@ test('a finger drag reaches a mouse-reporting app as one wheel per row', async (
 
 // Local: ⌘-click (Ctrl-click off Apple) on a URL opens it, as in Ghostty, even
 // with tmux mouse on. Plain text and OSC 8 links (what Claude Code prints).
-test('a modifier-click on a URL opens it in a new tab', async ({ page, host }) => {
+test('a modifier-click on a URL opens it in the default browser', async ({ page, host }) => {
   host.tmux('set-option', '-g', 'mouse', 'on');
   await page.addInitScript(() => { window.__opened = []; window.open = (u) => { window.__opened.push(u); return null; }; });
   await pair(page, host);
@@ -220,9 +220,17 @@ test('a modifier-click on a URL opens it in a new tab', async ({ page, host }) =
 
   await clickAt('x-https', 8, false);
   await page.waitForTimeout(300);
-  expect(await page.evaluate(() => window.__opened)).toEqual([]); // a plain click still goes to tmux
+  expect(host.opened()).toEqual([]); // a plain click still goes to tmux
+  // On the host, the host opens it in the default browser (Arc), not this page's browser.
+  await clickAt('x-https', 8, true);
+  await expect.poll(() => host.opened()).toEqual(['https://example.com/a?b=15']);
+  await clickAt('veja-aqui', 3, true);
+  await expect.poll(() => host.opened()).toEqual(['https://example.com/a?b=15', 'https://example.org/osc']);
+  expect(await page.evaluate(() => window.__opened)).toEqual([]);
+
+  // If the host cannot open it (it refuses a phone), the page opens it itself.
+  await page.route('**/api/open', (r) => r.fulfill({ status: 403 }));
   await clickAt('x-https', 8, true);
   await expect.poll(() => page.evaluate(() => window.__opened)).toEqual(['https://example.com/a?b=15']);
-  await clickAt('veja-aqui', 3, true);
-  await expect.poll(() => page.evaluate(() => window.__opened)).toEqual(['https://example.com/a?b=15', 'https://example.org/osc']);
+  expect(host.opened()).toHaveLength(2);
 });

@@ -96,7 +96,8 @@ func routes(guard access.Guard, tm sessions.Tmux, uploadDir uploads.Dir, restore
 	mux.HandleFunc("POST /api/pair", guard.HandlePair)
 	mux.HandleFunc("GET /api/me", guard.RequireDevice(access.HandleMe))
 	tm.Routes(mux, guard.RequireDevice, attach(guard.OriginHosts()))
-	tm.UndoRoutes(mux, guard.RequireDevice) // local: ⌘W closes undoably, ⌘Z reopens
+	tm.UndoRoutes(mux, guard.RequireDevice)      // local: ⌘W closes undoably, ⌘Z reopens
+	terminal.OpenRoute(mux, guard.RequireDevice) // local: ⌘-click opens in the default browser
 	uploadDir.Routes(mux, guard.RequireDevice)
 	if restorer != nil {
 		restorer.Routes(mux, guard.RequireDevice)

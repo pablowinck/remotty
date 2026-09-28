@@ -3,7 +3,7 @@
 // touches the developer's tmux or credentials.
 import { test as base, expect } from '@playwright/test';
 import { execFileSync, spawn } from 'node:child_process';
-import { existsSync, mkdtempSync, realpathSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { delimiter, join, resolve } from 'node:path';
 
@@ -17,7 +17,8 @@ const TMUX_DIR = (process.env.PATH || '').split(delimiter).find((d) => d && exis
 function cleanEnv(dir) {
   const PATH = [TMUX_DIR, '/usr/local/bin', '/usr/bin', '/bin'].filter(Boolean).join(delimiter);
   // macOS's /bin/bash (3.2) greets every shell with a "default shell is now zsh" banner.
-  return { PATH, HOME: dir, SHELL: '/bin/bash', LANG: 'C.UTF-8', REMOTTY_STATE_DIR: join(dir, 'state'), BASH_SILENCE_DEPRECATION_WARNING: '1' };
+  // REMOTTY_OPENER: links a test opens are written to a file, never to a real browser.
+  return { PATH, HOME: dir, SHELL: '/bin/bash', LANG: 'C.UTF-8', REMOTTY_STATE_DIR: join(dir, 'state'), BASH_SILENCE_DEPRECATION_WARNING: '1', REMOTTY_OPENER: join(dir, 'opener') };
 }
 
 export class Host {
@@ -31,6 +32,11 @@ export class Host {
 
   cli(...args) {
     return execFileSync(BIN, args, { env: this.env, encoding: 'utf8' });
+  }
+
+  // Links the host was asked to open in the default browser.
+  opened() {
+    return existsSync(join(this.dir, 'opened')) ? readFileSync(join(this.dir, 'opened'), 'utf8').split('\n').filter(Boolean) : [];
   }
 
   pairCode() {
@@ -63,6 +69,7 @@ export async function startHost(dir, extraArgs = [], { reuseTmux = false } = {})
     execFileSync('tmux', ['-S', join(dir, 'tmux.sock'), '-f', '/dev/null', 'new-session', '-d', '-s', 'main', '-x', '120', '-y', '40', 'bash --norc --noprofile'], { env });
     execFileSync('tmux', ['-S', join(dir, 'tmux.sock'), 'set-option', '-g', 'default-command', 'bash --norc --noprofile'], { env });
   }
+  writeFileSync(join(dir, 'opener'), '#!/bin/sh\necho "$1" >> "$(dirname "$0")/opened"\n', { mode: 0o755 });
   const proc = spawn(BIN, ['serve', '-addr', '127.0.0.1:0', '-tmux-socket', join(dir, 'tmux.sock'), ...extraArgs], { env });
   const origin = await new Promise((ok, fail) => {
     let out = '';

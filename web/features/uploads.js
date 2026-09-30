@@ -75,9 +75,16 @@ async function attach(blob, name, deps) {
 // Android, MP4 on Safari); the file name carries the matching extension.
 function wireRecorder(button, deps) {
   let recorder = null;
+  let why = ''; // set when the phone, not the user, ended the note
+  let started = 0;
   const setRecording = (on) => button.setAttribute('aria-pressed', String(on));
+  const cut = (reason) => {
+    if (!recorder) return;
+    why ||= reason;
+    if (recorder.state === 'recording') recorder.stop();
+  };
   // Locked by hand or switched away: the phone cuts the mic, so send what was said.
-  document.addEventListener('visibilitychange', () => document.hidden && recorder?.state === 'recording' && recorder.stop());
+  document.addEventListener('visibilitychange', () => document.hidden && cut('the app left the screen'));
 
   button.addEventListener('click', async () => {
     if (recorder) return recorder.stop();
@@ -90,7 +97,13 @@ function wireRecorder(button, deps) {
     }
     const chunks = [];
     const screen = keepScreenOn();
+    why = '';
+    started = Date.now();
     recorder = new MediaRecorder(stream);
+    // A Home Screen app can get a mic iOS kills at once: on 2026-09-30 six notes
+    // in a row came out empty and their paths were typed at the prompt anyway.
+    stream.getAudioTracks().forEach((t) => (t.onended = () => cut('iOS cut the microphone')));
+    recorder.onerror = () => cut('the recorder failed');
     recorder.ondataavailable = (e) => e.data.size && chunks.push(e.data);
     recorder.onstop = () => {
       screen.then((lock) => lock?.release());
@@ -98,14 +111,21 @@ function wireRecorder(button, deps) {
       const type = recorder.mimeType || 'audio/webm';
       recorder = null;
       setRecording(false);
+      const blob = new Blob(chunks, { type });
+      if (!blob.size || (why && Date.now() - started < 500)) return deps.onStatus(nothingRecorded(why));
       const ext = type.includes('mp4') ? 'm4a' : type.includes('ogg') ? 'ogg' : 'webm';
       const stamp = new Date().toISOString().slice(0, 19).replace(/[-:T]/g, '');
-      attach(new Blob(chunks, { type }), `voice-${stamp}.${ext}`, deps);
+      attach(blob, `voice-${stamp}.${ext}`, deps);
     };
     recorder.start();
     setRecording(true);
     deps.onStatus('Recording… tap the mic again to send');
   });
+}
+
+// iOS keeps a dead mic until the app is closed, and sometimes until a restart.
+function nothingRecorded(why) {
+  return `Nothing recorded (${why || 'the microphone gave no sound'}). Close the app and open it again; if it keeps happening, restart the phone.`;
 }
 
 // A phone that dimmed and locked mid-note cut the mic and lost the note.

@@ -3,6 +3,8 @@
 Your tmux windows in a browser tab. Built to run 20–30 coding agents on a home
 machine and drive them from a tablet while travelling.
 
+![One tmux session on a PC, a tablet and a phone at once: typing on the phone shows on every screen, and each device can watch a different agent](docs/remotty.gif)
+
 - **One binary, no runtime.** Go, with the UI embedded. Nothing is fetched at runtime.
 - **Nothing phones home.** No analytics, no telemetry, no auto-update, no third-party
   origin in the page. A test fails if the page ever makes such a request.

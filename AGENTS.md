@@ -17,6 +17,16 @@ Touching iOS code? Run it where WebKit starts.
 `--e2e` skips vet and unit tests for a fast loop; extra arguments go to
 Playwright. Run the full check before you call it done.
 
+To try a build by hand, replace the running one; never start a second
+`remotty serve` on `localhost`. Cookies ignore the port, so pairing with a copy
+on `:7682` overwrites the `remotty-local` cookie of the real one on `:7681` and
+logs that browser out (the tmux windows survive). Replace it like this:
+
+```sh
+cp ~/go/bin/remotty /tmp/remotty-prev   # rollback copy
+go build -o ~/go/bin/remotty ./cmd/remotty && systemctl --user restart remotty
+```
+
 ## Where things go
 
 The code is organised by feature, the same three on each side:

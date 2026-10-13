@@ -18,6 +18,9 @@ func (t Tmux) Routes(mux *http.ServeMux, wrap func(http.HandlerFunc) http.Handle
 	mux.HandleFunc("PUT /api/windows/{id}/folder", wrap(t.handleSetFolder))
 	mux.HandleFunc("GET /api/folders", wrap(t.handleFolders))
 	mux.HandleFunc("POST /api/folders", wrap(t.handleAddFolder))
+	mux.HandleFunc("PATCH /api/folders/{name}", wrap(t.handleRenameFolder))
+	mux.HandleFunc("DELETE /api/folders/{name}", wrap(t.handleDeleteFolder))
+	mux.HandleFunc("POST /api/folders/{name}/move", wrap(t.handleMoveFolder))
 	mux.HandleFunc("GET /api/windows/{id}/tty", wrap(func(w http.ResponseWriter, r *http.Request) {
 		argv, err := t.AttachCommand(r.PathValue("id"))
 		if respond(w, err) {
@@ -77,6 +80,26 @@ func (t Tmux) handleFolders(w http.ResponseWriter, r *http.Request) {
 func (t Tmux) handleAddFolder(w http.ResponseWriter, r *http.Request) {
 	var req nameBody
 	if decode(w, r, &req) && respond(w, t.AddFolder(req.Name)) {
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+func (t Tmux) handleRenameFolder(w http.ResponseWriter, r *http.Request) {
+	var req nameBody
+	if decode(w, r, &req) && respond(w, t.RenameFolder(r.PathValue("name"), req.Name)) {
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+func (t Tmux) handleDeleteFolder(w http.ResponseWriter, r *http.Request) {
+	if respond(w, t.DeleteFolder(r.PathValue("name"))) {
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+func (t Tmux) handleMoveFolder(w http.ResponseWriter, r *http.Request) {
+	var req moveBody
+	if decode(w, r, &req) && respond(w, t.MoveFolder(r.PathValue("name"), req.Target, req.After)) {
 		w.WriteHeader(http.StatusNoContent)
 	}
 }

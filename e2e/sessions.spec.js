@@ -117,3 +117,41 @@ test('folders group agents, collapse, and live in tmux', async ({ page, host }) 
   await expect(page.locator('#tab-list li.folder', { hasText: 'infra' })).toBeVisible();
   expect(host.tmux('show-options', '-v', '-t', '=main:', '@remotty-folders')).toBe('billing\ninfra\n');
 });
+
+test('a folder can be renamed, reordered by dragging, and deleted without closing its agents', async ({ page, host }) => {
+  host.tmux('new-window', '-d', '-t', '=main:', '-n', 'faturas');
+  const faturas = host.windows().find((w) => w.name === 'faturas');
+  host.tmux('set-option', '-t', '=main:', '@remotty-folders', 'a\nfront/back');
+  host.tmux('set-option', '-w', '-t', faturas.id, '@remotty-folder', 'front/back');
+  await pair(page, host);
+  const folders = page.locator('#tab-list li.folder .name');
+  const folderList = () => host.tmux('show-options', '-qv', '-t', '=main:', '@remotty-folders');
+  await expect(folders).toHaveText(['a', 'front/back']);
+
+  // Rename: a "/" in the name must survive the URL path.
+  page.once('dialog', (d) => d.accept('billing'));
+  await page.getByRole('button', { name: 'Options for folder front/back' }).click();
+  await page.getByRole('menuitem', { name: 'Rename' }).click();
+  await expect(folders).toHaveText(['a', 'billing']);
+  expect(host.tmux('show-options', '-wv', '-t', faturas.id, '@remotty-folder').trim()).toBe('billing');
+
+  // Drag "billing" above "a".
+  const from = await page.locator('#tab-list li.folder', { hasText: 'billing' }).boundingBox();
+  const to = await page.locator('#tab-list li.folder', { hasText: /^a/ }).boundingBox();
+  await page.mouse.move(from.x + 20, from.y + from.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(from.x + 20, to.y + to.height * 0.2, { steps: 10 });
+  await expect(page.locator('#tab-list li.folder', { hasText: /^a/ })).toHaveClass(/drop-before/);
+  await page.mouse.up();
+  await expect.poll(folderList).toBe('billing\na\n');
+  await expect(folders).toHaveText(['billing', 'a']);
+
+  page.once('dialog', (d) => d.accept());
+  await page.getByRole('button', { name: 'Options for folder billing' }).click();
+  await page.getByRole('menuitem', { name: 'Delete' }).click();
+  await expect(folders).toHaveText(['a']);
+  await expect.poll(folderList).toBe('a\n');
+  // The agent is still there, now loose.
+  await expect(page.locator('#tab-list li[data-id]', { hasText: 'faturas' })).not.toHaveClass(/in-folder/);
+  expect(host.windows().map((w) => w.name)).toContain('faturas');
+});

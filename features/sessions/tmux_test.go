@@ -275,3 +275,49 @@ func folderOf(t *testing.T, tm Tmux, id string) string {
 	t.Fatalf("window %s not listed", id)
 	return ""
 }
+
+func TestRenameDeleteMoveFolder(t *testing.T) {
+	tm := newTestTmux(t)
+	id, _ := tm.Create("api")
+	for _, f := range []string{"a", "b", "c"} {
+		tm.AddFolder(f)
+	}
+	tm.SetFolder(id, "b")
+
+	if err := tm.RenameFolder("b", "a"); err != ErrBadName {
+		t.Fatalf("rename onto an existing folder: want ErrBadName, got %v", err)
+	}
+	if err := tm.RenameFolder("b", "billing"); err != nil {
+		t.Fatalf("rename: %v", err)
+	}
+	if f := folderOf(t, tm, id); f != "billing" {
+		t.Fatalf("window did not follow the rename: %q", f)
+	}
+	if err := tm.MoveFolder("c", "a", false); err != nil {
+		t.Fatalf("move: %v", err)
+	}
+	if folders, _ := tm.Folders(); strings.Join(folders, "|") != "c|a|billing" {
+		t.Fatalf("after move before a: %q", folders)
+	}
+	if err := tm.MoveFolder("c", "billing", true); err != nil {
+		t.Fatalf("move after: %v", err)
+	}
+	if folders, _ := tm.Folders(); strings.Join(folders, "|") != "a|billing|c" {
+		t.Fatalf("after move after billing: %q", folders)
+	}
+	if err := tm.DeleteFolder("billing"); err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+	if folders, _ := tm.Folders(); strings.Join(folders, "|") != "a|c" {
+		t.Fatalf("after delete: %q", folders)
+	}
+	if f := folderOf(t, tm, id); f != "" {
+		t.Fatalf("window still tagged with deleted folder: %q", f)
+	}
+	if nameOf(t, tm, id) != "api" {
+		t.Fatal("deleting a folder closed its window")
+	}
+	if err := tm.DeleteFolder("billing"); err != ErrNoFolder {
+		t.Fatalf("delete missing: want ErrNoFolder, got %v", err)
+	}
+}

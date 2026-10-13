@@ -82,7 +82,9 @@ remotty revoke ID   # unpair; its open terminals close within a second
   creates an unnamed one. `Esc` goes back to the terminal. `+` opens the finder.
 - Double-tap a tab to rename it. Its `⋯` menu closes it or moves it to a folder.
 - **Folders** group agents, say one per project or line of work. Create one in the
-  finder: type a name and pick `+ New folder`, the row below `+ New agent`. Tap a folder to collapse or expand it. A collapsed folder still
+  finder: type a name and pick `+ New folder`, the row below `+ New agent`. Tap a folder to collapse or expand it, drag it to reorder the folders,
+  and use its `⋯` to rename or delete it (deleting keeps its agents running,
+  outside any folder). A collapsed folder still
   shows the tab you have open, and its dot lights up when an agent inside rings.
   Folders are kept in tmux, so every device sees them. Whether a folder is
   collapsed is remembered per browser.

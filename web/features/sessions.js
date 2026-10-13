@@ -88,6 +88,10 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
     return [...folders.flatMap((f) => [{ header: f }, ...shown(f)]), ...inFolder('')];
   }
 
+  // Alt+1..9 follow the list as shown, top to bottom: collapsing a folder renumbers
+  // the agents below it, and the ones it hides get no key.
+  const hotkeyOrder = () => tree().filter((row) => row.id).slice(0, 9);
+
   function render() {
     const all = query() ? rows() : tree();
     highlighted = Math.min(highlighted, Math.max(all.length - 1, 0));
@@ -131,9 +135,44 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
     const count = document.createElement('span');
     count.className = 'count';
     count.textContent = inside.length;
-    li.append(name, dot, count);
-    li.addEventListener('click', () => toggleFolder(f));
+    const more = document.createElement('button');
+    more.className = 'more';
+    more.type = 'button';
+    more.textContent = '⋯';
+    more.setAttribute('aria-label', `Options for folder ${f}`);
+    more.setAttribute('aria-haspopup', 'menu');
+    li.append(name, dot, count, more);
+    li.addEventListener('click', (e) => {
+      if (dragged) return;
+      if (e.target === more) showFolderMenu(f, more.getBoundingClientRect());
+      else toggleFolder(f);
+    });
     return li;
+  }
+
+  function showFolderMenu(f, anchor) {
+    menu.replaceChildren(menuItem('Rename', () => renameFolder(f)), menuItem('Delete', () => deleteFolder(f)));
+    menu.showPopover();
+    placeMenu(anchor);
+    menu.querySelector('button').focus();
+  }
+
+  async function renameFolder(f) {
+    const name = prompt('Rename folder:', f)?.trim();
+    if (!name || name === f) return;
+    await api('PATCH', `/api/folders/${encodeURIComponent(f)}`, { name }).catch(onError);
+    if (collapsed.delete(f)) collapsed.add(name);
+    saveCollapsed(collapsed);
+    refresh();
+  }
+
+  // The agents inside are not closed: they go back to the loose list.
+  async function deleteFolder(f) {
+    if (!confirm(`Delete folder "${f}"? Its agents keep running, outside any folder.`)) return;
+    await api('DELETE', `/api/folders/${encodeURIComponent(f)}`).catch(onError);
+    collapsed.delete(f);
+    saveCollapsed(collapsed);
+    refresh();
   }
 
   function toggleFolder(f) {
@@ -172,7 +211,8 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
     li.dataset.index = w.index;
     const hotkey = document.createElement('kbd');
     hotkey.className = 'hotkey';
-    if (w.index >= 1 && w.index <= 9) hotkey.textContent = keyLabel(`Alt ${w.index}`);
+    const key = hotkeyOrder().indexOf(w) + 1;
+    if (key) hotkey.textContent = keyLabel(`Alt ${key}`);
     const more = document.createElement('button');
     more.className = 'more';
     more.type = 'button';
@@ -202,7 +242,7 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
   const horizontal = () => getComputedStyle(list).display === 'flex';
 
   list.addEventListener('pointerdown', (e) => {
-    const li = e.target.closest('li[data-id]');
+    const li = e.target.closest('li[data-id], li.folder');
     if (!li || e.button !== 0 || e.target.closest('.more') || query()) return;
     drag = { li, x: e.clientX, y: e.clientY, on: false, pointerId: e.pointerId };
     dragged = false;
@@ -243,11 +283,13 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
   list.addEventListener('dragstart', (e) => e.preventDefault()); // no native ghost image
 
   // The row under the pointer, and whether the drop lands after its middle.
-  // A folder header takes the drop as a whole: the window goes into it.
+  // A window dropped on a folder header goes into it; a dragged folder only
+  // lands next to another folder, so folders reorder among themselves.
   function dropSpot(e, dragging = drag.li) {
-    const over = document.elementsFromPoint(e.clientX, e.clientY).find((el) => el.matches?.('li[data-id], li.folder') && el !== dragging);
+    const isFolder = dragging.classList.contains('folder');
+    const over = document.elementsFromPoint(e.clientX, e.clientY).find((el) => el.matches?.(isFolder ? 'li.folder' : 'li[data-id], li.folder') && el !== dragging);
     if (!over) return null;
-    if (over.classList.contains('folder')) return { over, into: true };
+    if (!isFolder && over.classList.contains('folder')) return { over, into: true };
     const r = over.getBoundingClientRect();
     const after = horizontal() ? e.clientX > r.left + r.width / 2 : e.clientY > r.top + r.height / 2;
     return { over, after };
@@ -274,9 +316,15 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
   // Dropped next to a window, the dragged one also joins that window's folder,
   // so dragging beside a loose tab is how a window leaves its folder.
   async function drop(li, spot) {
+    if (li.classList.contains('folder')) return moveFolder(li.dataset.folder, spot.over.dataset.folder, spot.after);
     const folder = spot.over.dataset.folder;
     if (!spot.into) await move(li.dataset.id, spot.over.dataset.id, spot.after, false);
     if (folder !== li.dataset.folder) await setFolder(li.dataset.id, folder);
+    await refresh();
+  }
+
+  async function moveFolder(name, target, after) {
+    await api('POST', `/api/folders/${encodeURIComponent(name)}/move`, { target, after }).catch(onError);
     await refresh();
   }
 
@@ -457,9 +505,9 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
       if (first) select(first.id);
     },
     stop: () => clearInterval(timer),
-    // Alt+N: the window whose tmux index is N, like tmux's own prefix+N.
+    // Alt+N: the Nth agent in the list as shown.
     openIndex(n) {
-      const w = windows.find((x) => x.index === n);
+      const w = hotkeyOrder()[n - 1];
       if (w) open(w.id);
     },
     // Alt+Shift+Up / Alt+Shift+Down: move the open agent one place, like a drag.

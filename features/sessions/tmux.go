@@ -22,6 +22,7 @@ type Window struct {
 	Bell     bool   `json:"bell"`
 	Activity bool   `json:"activity"`
 	Silence  bool   `json:"silence"` // idle long enough that the agent is probably waiting on you
+	Folder   string `json:"folder"`  // "" when the window is in no folder
 }
 
 // Tmux drives one session on one server socket. Socket is a tmux -S path, so
@@ -39,7 +40,7 @@ var (
 	ErrNoWindow     = errors.New("no such window")
 )
 
-const listFormat = "#{window_id}\t#{window_index}\t#{window_active}\t#{window_bell_flag}\t#{window_activity_flag}\t#{window_silence_flag}\t#{window_name}"
+const listFormat = "#{window_id}\t#{window_index}\t#{window_active}\t#{window_bell_flag}\t#{window_activity_flag}\t#{window_silence_flag}\t#{" + folderOption + "}\t#{window_name}"
 
 func (t Tmux) run(args ...string) (string, error) {
 	out, err := exec.Command("tmux", append([]string{"-S", t.Socket}, args...)...).CombinedOutput()
@@ -90,15 +91,15 @@ func (t Tmux) List() ([]Window, error) {
 func parseWindows(out string) []Window {
 	windows := []Window{}
 	for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
-		f := strings.SplitN(line, "\t", 7)
-		if len(f) != 7 {
+		f := strings.SplitN(line, "\t", 8)
+		if len(f) != 8 {
 			continue
 		}
 		var index int
 		fmt.Sscan(f[1], &index)
 		windows = append(windows, Window{
 			ID: f[0], Index: index, Active: f[2] == "1",
-			Bell: f[3] == "1", Activity: f[4] == "1", Silence: f[5] == "1", Name: f[6],
+			Bell: f[3] == "1", Activity: f[4] == "1", Silence: f[5] == "1", Folder: f[6], Name: f[7],
 		})
 	}
 	return windows
@@ -136,10 +137,8 @@ func (t Tmux) Move(id, target string, after bool) error {
 	if !windowIDPattern.MatchString(id) || !windowIDPattern.MatchString(target) {
 		return ErrBadWindowID
 	}
-	for _, w := range []string{id, target} {
-		if out, _ := t.run("display-message", "-p", "-t", w, "#{window_id}"); strings.TrimSpace(out) != w {
-			return ErrNoWindow
-		}
+	if !t.hasWindow(id) || !t.hasWindow(target) {
+		return ErrNoWindow
 	}
 	if id == target {
 		return nil
@@ -150,6 +149,13 @@ func (t Tmux) Move(id, target string, after bool) error {
 	}
 	_, err := t.run("move-window", side, "-s", id, "-t", target, ";", "move-window", "-r", "-t", "="+t.Session)
 	return err
+}
+
+// hasWindow reports whether window id exists. display-message exits 0 with
+// empty output for a missing target, so it compares the id, not the exit status.
+func (t Tmux) hasWindow(id string) bool {
+	out, _ := t.run("display-message", "-p", "-t", id, "#{window_id}")
+	return strings.TrimSpace(out) == id
 }
 
 // Close kills a window and whatever runs in it.
@@ -172,10 +178,8 @@ func (t Tmux) AttachCommand(id string) ([]string, error) {
 		return nil, ErrBadWindowID
 	}
 	// If select-window fails, tmux still attaches the client to the active
-	// window, and the tab's keystrokes would reach a different agent. Note that
-	// display-message exits 0 with empty output for a missing target, so the
-	// check must compare the id, not trust the exit status.
-	if out, _ := t.run("display-message", "-p", "-t", id, "#{window_id}"); strings.TrimSpace(out) != id {
+	// window, and the tab's keystrokes would reach a different agent.
+	if !t.hasWindow(id) {
 		return nil, ErrNoWindow
 	}
 	return []string{

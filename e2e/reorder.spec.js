@@ -83,3 +83,37 @@ test.describe('on a phone', () => {
     await expect.poll(() => names(host)).toEqual(['dois', 'tres', 'um']);
   });
 });
+
+const folderOf = (host, name) => {
+  const w = host.windows().find((x) => x.name === name);
+  return host.tmux('show-options', '-wqv', '-t', w.id, '@remotty-folder').trim();
+};
+const dragTo = async (page, from, to, at) => {
+  const a = await from.boundingBox();
+  const b = await to.boundingBox();
+  await page.mouse.move(a.x + 20, a.y + a.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(a.x + 20, b.y + b.height * at, { steps: 10 });
+};
+
+test('dragging a tab onto a folder puts it in, and beside a loose tab takes it out', async ({ page, host }) => {
+  setup(host);
+  host.tmux('set-option', '-t', '=main:', '@remotty-folders', 'billing');
+  await pair(page, host);
+  const header = page.locator('#tab-list li.folder');
+  await expect(header).toHaveText(/billing/);
+
+  await dragTo(page, row(page, 'dois'), header, 0.5);
+  await expect(header).toHaveClass(/drop-into/); // the folder lights up as the target
+  await page.mouse.up();
+  await expect.poll(() => folderOf(host, 'dois')).toBe('billing');
+  await expect(row(page, 'dois')).toHaveClass(/in-folder/);
+  expect(folderOf(host, 'um')).toBe(''); // anchor: only the dragged one moved
+
+  await dragTo(page, row(page, 'dois'), row(page, 'tres'), 0.8);
+  await expect(row(page, 'tres')).toHaveClass(/drop-after/);
+  await page.mouse.up();
+  await expect.poll(() => folderOf(host, 'dois')).toBe('');
+  await expect(row(page, 'dois')).not.toHaveClass(/in-folder/);
+  await expect.poll(() => names(host)).toEqual(['um', 'tres', 'dois']);
+});

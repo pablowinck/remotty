@@ -104,7 +104,7 @@ func TestRejectsBadNames(t *testing.T) {
 }
 
 func TestParseWindows(t *testing.T) {
-	out := "@1\t1\t1\t0\t0\t0\tbash\n@7\t2\t0\t1\t1\t1\tnome\tcom tab\n"
+	out := "@1\t1\t1\t0\t0\t0\t\tbash\n@7\t2\t0\t1\t1\t1\tbilling\tnome\tcom tab\n"
 	got := parseWindows(out)
 	if len(got) != 2 {
 		t.Fatalf("want 2 windows, got %d", len(got))
@@ -112,7 +112,7 @@ func TestParseWindows(t *testing.T) {
 	if !got[0].Active || got[0].Bell {
 		t.Errorf("window 1 flags wrong: %+v", got[0])
 	}
-	if got[1].ID != "@7" || !got[1].Bell || !got[1].Silence || got[1].Name != "nome\tcom tab" {
+	if got[1].ID != "@7" || !got[1].Bell || !got[1].Silence || got[1].Name != "nome\tcom tab" || got[1].Folder != "billing" {
 		t.Errorf("window 2 parsed wrong: %+v", got[1])
 	}
 }
@@ -229,4 +229,49 @@ func TestEnsureCreatesTheSocketDirectory(t *testing.T) {
 	if err != nil || st.Mode().Perm() != 0o700 {
 		t.Fatalf("socket dir %v (%v), want 0700: tmux refuses a directory others can read", st, err)
 	}
+}
+
+func TestFolders(t *testing.T) {
+	tm := newTestTmux(t)
+	id, _ := tm.Create("api")
+	if err := tm.SetFolder(id, "billing"); err != ErrNoFolder {
+		t.Fatalf("move to a missing folder: want ErrNoFolder, got %v", err)
+	}
+	// A name tmux would otherwise read as a format or a separator stays literal.
+	for _, f := range []string{"billing", "#{window_id} x", "billing"} {
+		if err := tm.AddFolder(f); err != nil {
+			t.Fatalf("add %q: %v", f, err)
+		}
+	}
+	if err := tm.AddFolder("-x"); err != ErrBadName {
+		t.Fatalf("add -x: want ErrBadName, got %v", err)
+	}
+	folders, _ := tm.Folders()
+	if strings.Join(folders, "|") != "billing|#{window_id} x" {
+		t.Fatalf("folders = %q", folders)
+	}
+	if err := tm.SetFolder(id, "#{window_id} x"); err != nil {
+		t.Fatalf("set folder: %v", err)
+	}
+	if f := folderOf(t, tm, id); f != "#{window_id} x" {
+		t.Fatalf("folder after set = %q", f)
+	}
+	if err := tm.SetFolder(id, ""); err != nil || folderOf(t, tm, id) != "" {
+		t.Fatalf("clear folder: %v, still %q", err, folderOf(t, tm, id))
+	}
+	if err := tm.SetFolder("@999", "billing"); err != ErrNoWindow {
+		t.Fatalf("missing window: want ErrNoWindow, got %v", err)
+	}
+}
+
+func folderOf(t *testing.T, tm Tmux, id string) string {
+	t.Helper()
+	windows, _ := tm.List()
+	for _, w := range windows {
+		if w.ID == id {
+			return w.Folder
+		}
+	}
+	t.Fatalf("window %s not listed", id)
+	return ""
 }

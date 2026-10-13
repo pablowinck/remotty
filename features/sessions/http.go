@@ -15,6 +15,9 @@ func (t Tmux) Routes(mux *http.ServeMux, wrap func(http.HandlerFunc) http.Handle
 	mux.HandleFunc("PATCH /api/windows/{id}", wrap(t.handleRename))
 	mux.HandleFunc("DELETE /api/windows/{id}", wrap(t.handleClose))
 	mux.HandleFunc("POST /api/windows/{id}/move", wrap(t.handleMove))
+	mux.HandleFunc("PUT /api/windows/{id}/folder", wrap(t.handleSetFolder))
+	mux.HandleFunc("GET /api/folders", wrap(t.handleFolders))
+	mux.HandleFunc("POST /api/folders", wrap(t.handleAddFolder))
 	mux.HandleFunc("GET /api/windows/{id}/tty", wrap(func(w http.ResponseWriter, r *http.Request) {
 		argv, err := t.AttachCommand(r.PathValue("id"))
 		if respond(w, err) {
@@ -64,6 +67,28 @@ func (t Tmux) handleMove(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (t Tmux) handleFolders(w http.ResponseWriter, r *http.Request) {
+	folders, err := t.Folders()
+	if respond(w, err) {
+		writeJSON(w, http.StatusOK, folders)
+	}
+}
+
+func (t Tmux) handleAddFolder(w http.ResponseWriter, r *http.Request) {
+	var req nameBody
+	if decode(w, r, &req) && respond(w, t.AddFolder(req.Name)) {
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+// handleSetFolder takes {"name": ""} to put the window back outside any folder.
+func (t Tmux) handleSetFolder(w http.ResponseWriter, r *http.Request) {
+	var req nameBody
+	if decode(w, r, &req) && respond(w, t.SetFolder(r.PathValue("id"), req.Name)) {
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
 func (t Tmux) handleClose(w http.ResponseWriter, r *http.Request) {
 	if respond(w, t.Close(r.PathValue("id"))) {
 		w.WriteHeader(http.StatusNoContent)
@@ -90,7 +115,7 @@ func respond(w http.ResponseWriter, err error) bool {
 		return true
 	case errors.Is(err, ErrBadWindowID), errors.Is(err, ErrBadName):
 		http.Error(w, err.Error(), http.StatusBadRequest)
-	case errors.Is(err, ErrNoWindow):
+	case errors.Is(err, ErrNoWindow), errors.Is(err, ErrNoFolder):
 		http.Error(w, err.Error(), http.StatusNotFound)
 	default:
 		http.Error(w, err.Error(), http.StatusInternalServerError)

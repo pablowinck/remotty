@@ -80,7 +80,12 @@ remotty revoke ID   # unpair; its open terminals close within a second
   Alt is ⌥ Option and the hints say so (`⌥1`, `⌃⇧K`). If nothing is named exactly that, the last row
   creates a new agent with the name you typed; `Enter` on an empty finder
   creates an unnamed one. `Esc` goes back to the terminal. `+` opens the finder.
-- Double-tap a tab to rename it; `×` closes it.
+- Double-tap a tab to rename it. Its `⋯` menu closes it or moves it to a folder.
+- **Folders** group agents, say one per project or line of work. Create one in the
+  finder: type a name and pick `+ New folder`, the row below `+ New agent`. Tap a folder to collapse or expand it. A collapsed folder still
+  shows the tab you have open, and its dot lights up when an agent inside rings.
+  Folders are kept in tmux, so every device sees them. Whether a folder is
+  collapsed is remembered per browser.
 - 📎 attaches a photo or file: it is saved on the host (`~/.local/state/remotty/uploads`,
   private to you) and its path is typed at the prompt, so you can say
   `look at <path>` to the agent. Up to 50 MB; nothing leaves the host. Pick

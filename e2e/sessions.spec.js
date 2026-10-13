@@ -25,7 +25,8 @@ test('creates, switches, renames and closes agent tabs', async ({ page, host }) 
   await expect(page.locator('#tab-list li[aria-current="true"] .name')).toHaveText('testador');
 
   page.once('dialog', (d) => d.accept());
-  await page.getByRole('button', { name: 'Close testador' }).click();
+  await page.getByRole('button', { name: 'Options for testador' }).click();
+  await page.getByRole('menuitem', { name: 'Close' }).click();
   await expect(tabs).toHaveCount(1);
   expect(host.windows().map((w) => w.name)).not.toContain('testador');
 });
@@ -73,4 +74,46 @@ test('a window name with markup is shown as text', async ({ page, host }) => {
   await expect(page.locator('#tab-list .name', { hasText: '<img src=x onerror=alert(1)>' })).toBeVisible();
   expect(dialog).toBe(false);
   await expect(page.locator('#tab-list img')).toHaveCount(0);
+});
+
+test('folders group agents, collapse, and live in tmux', async ({ page, host }) => {
+  host.tmux('new-window', '-d', '-t', '=main:', '-n', 'faturas');
+  await pair(page, host);
+  const row = (name) => page.locator('#tab-list li', { has: page.locator('.name', { hasText: name }) });
+
+  // No folder yet: "Move to…" is there but disabled.
+  await page.getByRole('button', { name: 'Options for faturas' }).click();
+  await expect(page.getByRole('menuitem', { name: 'Close' })).toBeEnabled();
+  await expect(page.getByRole('menuitem', { name: 'Move to…' })).toBeDisabled();
+  await page.keyboard.press('Escape');
+
+  // Folders are made in the finder: type a name, then pick "New folder" below "New agent".
+  await page.keyboard.press('Control+Shift+K');
+  await page.keyboard.type('billing');
+  await expect(page.locator('#tab-list li.create')).toHaveText('+ New agent "billing"');
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#tab-list li.folder')).toHaveText(/billing/);
+  expect(host.windows().map((w) => w.name)).not.toContain('billing'); // a folder, not an agent
+
+  await page.getByRole('button', { name: 'Options for faturas' }).click();
+  await page.getByRole('menuitem', { name: 'Move to…' }).click();
+  await page.getByRole('menuitem', { name: 'billing' }).click();
+  await expect(row('faturas')).toHaveClass(/in-folder/);
+  const faturas = host.windows().find((w) => w.name === 'faturas');
+  expect(host.tmux('show-options', '-wv', '-t', faturas.id, '@remotty-folder').trim()).toBe('billing');
+
+  // Collapse hides it (it is not the open tab); expanding brings it back.
+  await page.locator('#tab-list li.folder').click();
+  await expect(row('faturas')).toHaveCount(0);
+  await expect(page.locator('#tab-list li[data-id]')).toHaveCount(1);
+  await page.locator('#tab-list li.folder').click();
+  await expect(row('faturas')).toBeVisible();
+
+  // Typing then Enter on the finder's "New folder" row also creates one.
+  await page.getByRole('button', { name: 'New agent' }).click();
+  await page.keyboard.type('infra');
+  await page.locator('#tab-list li.create-folder', { hasText: 'New folder "infra"' }).click();
+  await expect(page.locator('#tab-list li.folder', { hasText: 'infra' })).toBeVisible();
+  expect(host.tmux('show-options', '-v', '-t', '=main:', '@remotty-folders')).toBe('billing\ninfra\n');
 });

@@ -26,7 +26,7 @@ test('typing filters the agents and Enter opens the match', async ({ page, host 
   await page.keyboard.type('agente-1');
   // agente-1, agente-10, agente-11, agente-12. "agente-1" already exists, so
   // no "create" row: Enter must never make a duplicate by accident.
-  await expect(page.locator('#tab-list li:not(.create)')).toHaveCount(4);
+  await expect(page.locator('#tab-list li[data-id]')).toHaveCount(4);
   await expect(page.locator('#tab-list li.create')).toHaveCount(0);
 
   await page.keyboard.press('ArrowDown'); // from agente-1 to agente-10
@@ -50,7 +50,8 @@ test('Esc clears the filter and gives the keyboard back to the terminal', async 
   await pair(page, host);
   await page.keyboard.press('Control+Shift+K');
   await page.keyboard.type('nada-com-isso');
-  await expect(page.locator('#tab-list li:not(.create)')).toHaveCount(0);
+  await expect(page.locator('#tab-list li[data-id]')).toHaveCount(0);
+  await expect(page.locator('#tab-list li.create')).toHaveCount(1); // anchor: the list is live
   await page.keyboard.press('Escape');
   await expect(page.locator('#tab-list li')).toHaveCount(1);
   await page.keyboard.type('echo voltei-$((4+4))\n');

@@ -81,7 +81,10 @@ remotty revoke ID   # unpair; its open terminals close within a second
   Alt is ⌥ Option and the hints say so (`⌥1`, `⌃⇧K`). If nothing is named exactly that, the last row
   creates a new agent with the name you typed; `Enter` on an empty finder
   creates an unnamed one. `Esc` goes back to the terminal. `+` opens the finder.
-- Double-tap a tab to rename it. Its `⋯` menu closes it or moves it to a folder.
+- Double-tap a tab to rename it. Its `⋯` menu closes it, moves it to a folder, or
+  duplicates it: a new agent right below, in the same folder and directory, running
+  again what runs there (`claude --dangerously-skip-permissions`, say) with the same
+  arguments, and a shell when it is back at the prompt.
 - **Folders** group agents, say one per project or line of work. Create one in the
   finder: type a name and pick `+ New folder`, the row below `+ New agent`. Tap a folder to collapse or expand it, drag it to reorder the folders,
   and use its `⋯` to create an agent right inside it, rename it or delete it (deleting keeps its agents running,

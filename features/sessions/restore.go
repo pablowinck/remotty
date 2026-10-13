@@ -138,17 +138,28 @@ func parsePS(out string) map[int]string {
 }
 
 func procStat(pid int) string {
+	if fields := statFields(pid); len(fields) >= 20 {
+		return fields[19]
+	}
+	return ""
+}
+
+// statFields splits /proc/PID/stat from field 3 on: fields are counted after
+// the command name, which is in parentheses and may itself contain spaces.
+func statFields(pid int) []string {
 	b, err := os.ReadFile(filepath.Join("/proc", strconv.Itoa(pid), "stat"))
 	if err != nil {
-		return ""
+		return nil
 	}
-	// Field 22 is counted after the command name, which is in parentheses and
-	// may itself contain spaces.
-	fields := strings.Fields(string(b[strings.LastIndexByte(string(b), ')')+1:]))
-	if len(fields) < 20 {
-		return ""
+	return strings.Fields(string(b[strings.LastIndexByte(string(b), ')')+1:]))
+}
+
+// userShell is the shell windows run, so PATH and aliases from its rc files apply.
+func userShell() string {
+	if shell := os.Getenv("SHELL"); shell != "" {
+		return shell
 	}
-	return fields[19]
+	return "/bin/sh"
 }
 
 // describe reads the working directory and the latest title (/rename) of one
@@ -202,10 +213,7 @@ func (r *Restorer) Restore(window time.Duration) ([]Conversation, error) {
 		if now.Sub(r.recent[c.ID]) < 2*time.Minute {
 			continue
 		}
-		shell := os.Getenv("SHELL")
-		if shell == "" {
-			shell = "/bin/sh"
-		}
+		shell := userShell()
 		line := r.Claude.Command + " " + c.ID + "; exec " + strconv.Quote(shell)
 		args := []string{"new-window", "-d", "-t", "=" + r.Tmux.Session + ":", "-n", windowName(c), "-c", c.Dir, shell, "-ic", line}
 		if _, err := r.Tmux.inSession(args...); err != nil {

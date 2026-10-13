@@ -352,7 +352,7 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
   function showMenu(w, anchor) {
     const moveTo = menuItem('Move to…', () => showFolders(w, anchor), true);
     moveTo.disabled = !folders.length; // nowhere to move to yet
-    menu.replaceChildren(moveTo, menuItem('Close', () => remove(w)));
+    menu.replaceChildren(menuItem('Duplicate', () => openNew(`/api/windows/${encodeURIComponent(w.id)}/duplicate`)), moveTo, menuItem('Close', () => remove(w)));
     menu.showPopover();
     placeMenu(anchor);
     menu.querySelector('button:not(:disabled)').focus();
@@ -418,12 +418,15 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
     list.querySelector('[aria-current="true"]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   }
 
+  const create = (name, folder = '') => openNew('/api/windows', { name }, folder);
+
   // Keys typed while the host makes the window go to it, not to the agent on
   // screen. If it fails, they go where they went before: the current window.
-  async function create(name, folder = '') {
+  // Duplicate passes no folder: the host already put the copy in the original's.
+  async function openNew(path, body, folder = '') {
     holdKeys();
     try {
-      const { id } = await api('POST', '/api/windows', { name });
+      const { id } = await api('POST', path, body);
       if (folder) await setFolder(id, folder);
       await refresh();
       open(id);

@@ -194,3 +194,21 @@ test("a folder's ⋯ creates an agent inside it and opens it", async ({ page, ho
   await page.keyboard.type('echo dentro-$((6*7))\n');
   await expect.poll(() => host.capture(w.id)).toContain('dentro-42');
 });
+
+test("an agent's ⋯ Duplicate reruns its command in the same directory and folder", async ({ page, host }) => {
+  host.tmux('set-option', '-t', '=main:', '@remotty-folders', 'billing');
+  const [orig] = host.windows();
+  host.tmux('set-option', '-w', '-t', orig.id, '@remotty-folder', 'billing');
+  await pair(page, host);
+  await typeInTerminal(page, "cd /tmp && sh -c 'echo \"rodando-$((3*5))-$(pwd)\"; sleep 300' x\n");
+  await expect.poll(() => host.capture(orig.id)).toContain('rodando-15-/tmp');
+
+  await page.locator('#tab-list li[aria-current="true"] .more').click();
+  await page.getByRole('menuitem', { name: 'Duplicate' }).click();
+  await expect(page.locator('#tab-list li[data-id]')).toHaveCount(2);
+  const copy = host.windows().find((w) => w.id !== orig.id);
+  await expect(page.locator('#tab-list li[aria-current="true"]')).toHaveAttribute('data-id', copy.id);
+  await expect(page.locator('#tab-list li[aria-current="true"]')).toHaveClass(/in-folder/);
+  await expect.poll(() => host.capture(copy.id)).toContain('rodando-15-/tmp');
+  await expect(page.locator('#terminal .xterm-rows')).toContainText('rodando-15-/tmp');
+});

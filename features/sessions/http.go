@@ -15,6 +15,7 @@ func (t Tmux) Routes(mux *http.ServeMux, wrap func(http.HandlerFunc) http.Handle
 	mux.HandleFunc("PATCH /api/windows/{id}", wrap(t.handleRename))
 	mux.HandleFunc("DELETE /api/windows/{id}", wrap(t.handleClose))
 	mux.HandleFunc("POST /api/windows/{id}/move", wrap(t.handleMove))
+	mux.HandleFunc("POST /api/windows/{id}/duplicate", wrap(t.handleDuplicate))
 	mux.HandleFunc("PUT /api/windows/{id}/folder", wrap(t.handleSetFolder))
 	mux.HandleFunc("GET /api/folders", wrap(t.handleFolders))
 	mux.HandleFunc("POST /api/folders", wrap(t.handleAddFolder))
@@ -46,6 +47,13 @@ func (t Tmux) handleCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id, err := t.Create(req.Name)
+	if respond(w, err) {
+		writeJSON(w, http.StatusCreated, map[string]string{"id": id})
+	}
+}
+
+func (t Tmux) handleDuplicate(w http.ResponseWriter, r *http.Request) {
+	id, err := t.Duplicate(r.PathValue("id"))
 	if respond(w, err) {
 		writeJSON(w, http.StatusCreated, map[string]string{"id": id})
 	}

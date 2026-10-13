@@ -151,10 +151,20 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
   }
 
   function showFolderMenu(f, anchor) {
-    menu.replaceChildren(menuItem('Rename', () => renameFolder(f)), menuItem('Delete', () => deleteFolder(f)));
+    menu.replaceChildren(
+      menuItem('New agent', () => newAgentIn(f)),
+      menuItem('Rename', () => renameFolder(f)),
+      menuItem('Delete', () => deleteFolder(f)),
+    );
     menu.showPopover();
     placeMenu(anchor);
     menu.querySelector('button').focus();
+  }
+
+  // Cancel creates nothing; an empty name makes an unnamed agent, as in the finder.
+  function newAgentIn(f) {
+    const name = prompt(`New agent in "${f}":`);
+    if (name !== null) create(name.trim(), f);
   }
 
   async function renameFolder(f) {
@@ -410,10 +420,11 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
 
   // Keys typed while the host makes the window go to it, not to the agent on
   // screen. If it fails, they go where they went before: the current window.
-  async function create(name) {
+  async function create(name, folder = '') {
     holdKeys();
     try {
       const { id } = await api('POST', '/api/windows', { name });
+      if (folder) await setFolder(id, folder);
       await refresh();
       open(id);
     } catch (e) {

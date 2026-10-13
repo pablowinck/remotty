@@ -178,3 +178,19 @@ test('Alt+1..9 follow the list as shown, and collapsing a folder renumbers the a
   await page.keyboard.type('echo em-um-$((2*3))\n');
   await expect.poll(() => host.capture(id('um'))).toContain('em-um-6');
 });
+
+test("a folder's ⋯ creates an agent inside it and opens it", async ({ page, host }) => {
+  host.tmux('set-option', '-t', '=main:', '@remotty-folders', 'billing');
+  await pair(page, host);
+  page.once('dialog', (d) => d.accept('fatura-nova'));
+  await page.getByRole('button', { name: 'Options for folder billing' }).click();
+  await page.getByRole('menuitem', { name: 'New agent' }).click();
+  const open = page.locator('#tab-list li[aria-current="true"]');
+  await expect(open.locator('.name')).toHaveText('fatura-nova');
+  await expect(open).toHaveClass(/in-folder/);
+  const w = host.windows().find((x) => x.name === 'fatura-nova');
+  expect(host.tmux('show-options', '-wv', '-t', w.id, '@remotty-folder').trim()).toBe('billing');
+  // The keyboard is already in the new agent.
+  await page.keyboard.type('echo dentro-$((6*7))\n');
+  await expect.poll(() => host.capture(w.id)).toContain('dentro-42');
+});

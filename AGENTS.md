@@ -17,6 +17,11 @@ Touching iOS code? Run it where WebKit starts.
 `--e2e` skips vet and unit tests for a fast loop; extra arguments go to
 Playwright. Run the full check before you call it done.
 
+Work in a git worktree, never in the main checkout: other agent sessions edit
+remotty at the same time, and a `git add -A` there commits their half-done work
+with yours (it did once: their JS went in without their test updates, and
+`main` went red). Commit only your own files, then push to `main`.
+
 To try a build by hand, replace the running one; never start a second
 `remotty serve` on `localhost`. Cookies ignore the port, so pairing with a copy
 on `:7682` overwrites the `remotty-local` cookie of the real one on `:7681` and

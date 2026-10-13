@@ -72,8 +72,9 @@ remotty revoke ID   # unpair; its open terminals close within a second
 - The left column lists every window of the tmux session `main`. A red dot is a
   bell, amber means the window has been silent for a while (an agent waiting on
   you, if you set `monitor-silence` in tmux), blue is fresh output.
-- **Keyboard first.** `Alt+1`…`Alt+9` open agents 1 to 9 (each tab shows its
-  chip), `Alt+↓` / `Alt+↑` go to the next or previous one. `Ctrl+Shift+K`
+- **Keyboard first.** `Alt+1`…`Alt+9` open the first nine agents as the list
+  shows them, top to bottom (each tab shows its chip; collapsing a folder
+  renumbers the ones below), `Alt+↓` / `Alt+↑` go to the next or previous one. `Ctrl+Shift+K`
   opens the finder above the list: type to filter by name (or a window
   number), arrows to move, `Enter` to open, and you are typing in that agent.
   None of these keys ever reach the shell. On a Mac, iPad or iPhone keyboard,
@@ -105,7 +106,7 @@ remotty revoke ID   # unpair; its open terminals close within a second
   or iPhone it is ⌘V, and Ctrl+V stays the terminal's own ^V, as in Terminal.app.
 - Drag a tab to reorder the agents (on a touch screen, hold it first so a swipe
   still scrolls), or move the open one with Alt+Shift+↑/↓. The order is tmux's
-  own window order, so ssh and every other device see it and Alt+1–9 follow it.
+  own window order, so ssh and every other device see it.
 - Drag a finger down on the terminal to scroll back through its history (tmux
   copy mode; `q` leaves it). This needs `set -g mouse on` in `~/.tmux.conf`.
 - Drag the mouse over text to copy it to the system clipboard: tmux copies on

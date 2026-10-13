@@ -155,3 +155,26 @@ test('a folder can be renamed, reordered by dragging, and deleted without closin
   await expect(page.locator('#tab-list li[data-id]', { hasText: 'faturas' })).not.toHaveClass(/in-folder/);
   expect(host.windows().map((w) => w.name)).toContain('faturas');
 });
+
+test('Alt+1..9 follow the list as shown, and collapsing a folder renumbers the agents below', async ({ page, host }) => {
+  for (const n of ['um', 'dois', 'tres']) host.tmux('new-window', '-d', '-t', '=main:', '-n', n);
+  const id = (name) => host.windows().find((w) => w.name === name).id;
+  // "tres" was made last, so tmux numbers it last; in a folder it is shown first.
+  host.tmux('set-option', '-t', '=main:', '@remotty-folders', 'topo');
+  host.tmux('set-option', '-w', '-t', id('tres'), '@remotty-folder', 'topo');
+  await pair(page, host);
+  await page.keyboard.press('Alt+1'); // open "tres", so the next step can show it moved away
+  const chips = () => page.locator('#tab-list li[data-id]').evaluateAll((rows) =>
+    rows.map((r) => `${r.querySelector('.name').textContent}=${r.querySelector('.hotkey')?.textContent ?? ''}`));
+  await expect.poll(chips).toEqual(['tres=Alt 1', 'bash=Alt 2', 'um=Alt 3', 'dois=Alt 4']);
+
+  await page.keyboard.press('Alt+4');
+  await expect(page.locator('#tab-list li[aria-current="true"] .name')).toHaveText('dois');
+  await page.locator('#tab-list li.folder').click(); // collapse "topo": "tres" is hidden, not open
+  await expect.poll(chips).toEqual(['bash=Alt 1', 'um=Alt 2', 'dois=Alt 3']);
+
+  await page.keyboard.press('Alt+2');
+  await expect(page.locator('#tab-list li[aria-current="true"] .name')).toHaveText('um');
+  await page.keyboard.type('echo em-um-$((2*3))\n');
+  await expect.poll(() => host.capture(id('um'))).toContain('em-um-6');
+});

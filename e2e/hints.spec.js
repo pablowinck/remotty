@@ -38,15 +38,14 @@ test('each of the first agents shows the Alt shortcut that opens it', async ({ p
   const rows = page.locator('#tab-list li:not(.create)');
   await expect(rows).toHaveCount(12);
   let withChip = 0;
-  for (const row of await rows.all()) {
-    const index = Number(await row.getAttribute('data-index'));
+  for (const [i, row] of (await rows.all()).entries()) {
     const chip = row.locator('.hotkey');
-    if (index < 1 || index > 9) { // only Alt+1..Alt+9 exist
+    if (i >= 9) { // only Alt+1..Alt+9 exist
       await expect(chip).toHaveCount(0);
       continue;
     }
     await expect(chip).toBeVisible();
-    await expect(chip).toHaveText(`Alt ${index}`);
+    await expect(chip).toHaveText(`Alt ${i + 1}`); // the place in the list, not the tmux index
     withChip++;
   }
   expect(withChip).toBe(9); // anchor: the loop really checked the chips
@@ -60,14 +59,14 @@ test('Alt+number opens that agent and hands it the keyboard, sending nothing to 
   await page.keyboard.type('x');
   await expect.poll(() => sent.some((b) => b.toString() === 'x')).toBe(true); // anchor: keys reach the socket
 
-  await page.keyboard.press('Alt+2');
-  await expect(page.locator('#tab-list li[aria-current="true"] .name')).toHaveText('agente-2');
+  await page.keyboard.press('Alt+2'); // the second row: tmux's own "bash" is the first
+  await expect(page.locator('#tab-list li[aria-current="true"] .name')).toHaveText('agente-1');
   // xterm would send ESC 2 for Alt+2: readline reads it as "repeat the next key twice".
   // (Switching windows also produces terminal replies, which are not keystrokes.)
   expect(sent.filter((b) => b.toString() === '\x1b2')).toEqual([]);
 
   await page.keyboard.type('echo no-dois-$((1+1))\n');
-  const two = host.windows().find((w) => w.name === 'agente-2');
+  const two = host.windows().find((w) => w.name === 'agente-1');
   await expect.poll(() => host.capture(two.id)).toContain('no-dois-2');
 });
 
@@ -117,6 +116,6 @@ for (const [label, viewport] of [['tablet', null], ['desktop', { width: 1440, he
       expect(clipped, `"${await name.textContent()}" is cut off`).toBe(false);
       chips += await name.locator('xpath=..').locator('.hotkey').count();
     }
-    expect(chips).toBe(3); // anchor: the chips are there while the names fit
+    expect(chips).toBe(4); // anchor: every row has its chip while the names fit
   });
 }

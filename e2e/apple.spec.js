@@ -9,7 +9,7 @@ test.describe('on a Mac', () => {
     await pair(page, host);
     await expect(page.locator('#find-key')).toHaveText('⌃⇧K');
     await expect(page.locator('#tabs-hint')).toContainText('⌥1–9');
-    await expect(page.locator('#tab-list li[data-index="1"] .hotkey')).toHaveText('⌥1');
+    await expect(page.locator('#tab-list li[data-index="1"] .hotkey')).toHaveText('⌥2'); // second row
     await expect(page.locator('#tabs-hint')).not.toContainText('Alt'); // anchor above: the hint is there
   });
 
@@ -24,10 +24,10 @@ test.describe('on a Mac', () => {
     await expect.poll(() => sent.includes('x')).toBe(true); // anchor: keys reach the socket
     await page.evaluate(() => document.querySelector('#terminal .xterm-helper-textarea')
       .dispatchEvent(new KeyboardEvent('keydown', { key: '™', code: 'Digit2', altKey: true, bubbles: true, cancelable: true })));
-    await expect(page.locator('#tab-list li[aria-current="true"] .name')).toHaveText('agente-2');
+    await expect(page.locator('#tab-list li[aria-current="true"] .name')).toHaveText('agente-1'); // second row
     expect(sent.filter((s) => s.includes('™') || s === '\x1b2')).toEqual([]);
     await page.keyboard.type('echo no-dois-$((1+1))\n');
-    const two = host.windows().find((w) => w.name === 'agente-2');
+    const two = host.windows().find((w) => w.name === 'agente-1');
     await expect.poll(() => host.capture(two.id)).toContain('no-dois-2');
   });
 

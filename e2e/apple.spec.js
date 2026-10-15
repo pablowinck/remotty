@@ -73,6 +73,24 @@ test.describe('on a Mac', () => {
     await expect.poll(() => host.capture(id)).toContain('ainda=viva-25'); // its shell kept running
   });
 
+  // Local: ⌘E duplicates the open agent, like its ⋯ Duplicate, and nothing
+  // reaches the shell the shortcut came from.
+  test('⌘E duplicates the open agent and lands in the copy', async ({ page, host }) => {
+    const [orig] = host.windows();
+    const sent = [];
+    page.on('websocket', (ws) => ws.on('framesent', (f) => { if (typeof f.payload !== 'string') sent.push(Buffer.from(f.payload).toString()); }));
+    await pair(page, host);
+    await typeInTerminal(page, "cd /tmp && echo dup-$((4*4)) && sleep 300\n");
+    await expect.poll(() => host.capture(orig.id)).toContain('dup-16');
+    sent.length = 0;
+    await page.keyboard.press('Meta+E');
+    await expect.poll(() => host.windows().length).toBe(2);
+    const copy = host.windows().find((w) => w.id !== orig.id);
+    await expect(page.locator('#tab-list li[aria-current="true"]')).toHaveAttribute('data-id', copy.id);
+    await expect.poll(() => host.tmux('display', '-p', '-t', copy.id, '#{pane_current_path}').trim()).toMatch(/\/tmp$/);
+    expect(sent.filter((s) => /e/i.test(s))).toEqual([]); // no "e" typed into the original
+  });
+
   // Option+2 on a Mac types "™" (key) on the Digit2 key (code). Matching on the
   // key made every Alt+N shortcut dead on a Mac, and "™" reached the shell.
   test('Option+number opens that agent and types nothing', async ({ page, host }) => {

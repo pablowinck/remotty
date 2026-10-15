@@ -80,8 +80,8 @@ remotty revoke ID   # unpair; its open terminals close within a second
   None of these keys ever reach the shell. On a Mac, iPad or iPhone keyboard,
   Alt is ⌥ Option and the hints say so (`⌥1`). As in Ghostty (this local build):
   ⌘T asks for a new agent's name (Enter creates it; empty, an unnamed one),
-  ⌘W closes the open agent, and ⌘Z reopens the last one closed, still running,
-  for 5 minutes. If nothing is named exactly that, the last row
+  ⌘W closes the open agent, ⌘E duplicates it, and ⌘Z reopens the last one
+  closed, still running, for 5 minutes. If nothing is named exactly that, the last row
   creates a new agent with the name you typed; `Enter` on an empty finder
   creates an unnamed one. `Esc` goes back to the terminal. `+` opens the finder.
 - Double-tap a tab to rename it. Its `⋯` menu closes it, moves it to a folder, or

@@ -520,7 +520,7 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
   function showMenu(w, anchor) {
     const moveTo = menuItem('Move to…', () => showFolders(w, anchor), true);
     moveTo.disabled = !folders.length; // nowhere to move to yet
-    menu.replaceChildren(menuItem('Duplicate', () => openNew(`/api/windows/${encodeURIComponent(w.id)}/duplicate`)), moveTo, menuItem('Close', () => remove(w)));
+    menu.replaceChildren(menuItem('Duplicate', () => duplicate(w.id)), moveTo, menuItem('Close', () => remove(w)));
     menu.showPopover();
     placeMenu(anchor);
     menu.querySelector('button:not(:disabled)').focus();
@@ -587,6 +587,7 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
   }
 
   const create = (name, folder = '') => openNew('/api/windows', { name }, folder);
+  const duplicate = (id) => openNew(`/api/windows/${encodeURIComponent(id)}/duplicate`);
 
   // Keys typed while the host makes the window go to it, not to the agent on
   // screen. If it fails, they go where they went before: the current window.
@@ -725,6 +726,8 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
     },
     // ⌘W: close the open agent, undoably (⌘Z), and move to its neighbour.
     closeCurrent: () => current && closeUndoable(current),
+    // ⌘E: the ⋯ menu's Duplicate, for the open agent.
+    duplicateCurrent: () => current && duplicate(current),
     reopenLast,
   };
 }

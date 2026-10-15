@@ -49,10 +49,11 @@ async function main() {
   const shortcuts = {
     'Ctrl+Shift+K': () => sessions.focusFind(),
     // Local, as in Ghostty: ⌘T asks for the new agent's name (Enter creates it),
-    // ⌘W closes the open agent, ⌘Z reopens the last one closed.
+    // ⌘W closes the open agent, ⌘Z reopens the last one closed, ⌘E duplicates it.
     'Meta+T': () => sessions.newAgent(),
     'Meta+W': () => sessions.closeCurrent(),
     'Meta+Z': () => sessions.reopenLast(),
+    'Meta+E': () => sessions.duplicateCurrent(), // local: the ⋯ menu's Duplicate
     'Alt+ArrowDown': () => sessions.step(1),
     'Alt+ArrowUp': () => sessions.step(-1),
     'Alt+Shift+ArrowDown': () => sessions.shift(1),

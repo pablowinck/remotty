@@ -19,7 +19,7 @@ func (t Tmux) Duplicate(id string) (string, error) {
 	if !t.hasWindow(id) {
 		return "", ErrNoWindow
 	}
-	out, err := t.run("display-message", "-p", "-t", id, "#{pane_pid}\t#{pane_current_path}\t#{"+folderOption+"}\t#{window_name}")
+	out, err := t.run("display-message", "-p", "-t", id, "#{pane_pid}\t#{pane_current_path}\t#{window_name}\t#{"+folderOption+"}") // folder last, see listFormat
 	if err != nil {
 		return "", err
 	}
@@ -29,8 +29,8 @@ func (t Tmux) Duplicate(id string) (string, error) {
 	}
 	pid, _ := strconv.Atoi(f[0])
 	args := []string{"new-window", "-d", "-a", "-P", "-F", "#{window_id}", "-t", id, "-c", f[1]}
-	if f[3] != "" && validName(f[3]) == nil { // programs inside set the name
-		args = append(args, "-n", f[3])
+	if f[2] != "" && validName(f[2]) == nil { // programs inside set the name
+		args = append(args, "-n", f[2])
 	}
 	if line := foreground(pid); line != "" {
 		shell := userShell()
@@ -38,10 +38,10 @@ func (t Tmux) Duplicate(id string) (string, error) {
 	}
 	newID, err := t.run(args...)
 	newID = strings.TrimSpace(newID)
-	if err != nil || f[2] == "" {
+	if err != nil || f[3] == "" {
 		return newID, err
 	}
-	_, err = t.run("set-option", "-w", "-t", newID, folderOption, f[2])
+	_, err = t.run("set-option", "-w", "-t", newID, folderOption, f[3])
 	return newID, err
 }
 

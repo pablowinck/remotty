@@ -104,15 +104,16 @@ func TestRejectsBadNames(t *testing.T) {
 }
 
 func TestParseWindows(t *testing.T) {
-	out := "@1\t1\t1\t0\t0\t0\t\tbash\n@7\t2\t0\t1\t1\t1\tbilling\tnome\tcom tab\n"
+	// tmux escapes a tab in window_name; one in the folder option arrives raw.
+	out := "@1\t1\t1\t0\t0\t0\tbash\t\n@7\t2\t0\t1\t1\t1\tnome\\tcom tab\tbill\ting\n"
 	got := parseWindows(out)
 	if len(got) != 2 {
 		t.Fatalf("want 2 windows, got %d", len(got))
 	}
-	if !got[0].Active || got[0].Bell {
+	if !got[0].Active || got[0].Bell || got[0].Name != "bash" || got[0].Folder != "" {
 		t.Errorf("window 1 flags wrong: %+v", got[0])
 	}
-	if got[1].ID != "@7" || !got[1].Bell || !got[1].Silence || got[1].Name != "nome\tcom tab" || got[1].Folder != "billing" {
+	if got[1].ID != "@7" || !got[1].Bell || !got[1].Silence || got[1].Name != `nome\tcom tab` || got[1].Folder != "bill\ting" {
 		t.Errorf("window 2 parsed wrong: %+v", got[1])
 	}
 }
@@ -261,6 +262,28 @@ func TestFolders(t *testing.T) {
 	}
 	if err := tm.SetFolder("@999", "billing"); err != ErrNoWindow {
 		t.Fatalf("missing window: want ErrNoWindow, got %v", err)
+	}
+}
+
+// validName keeps a tab out of new folders, but one already in tmux must still work.
+func TestAFolderWithATabInItsNameHoldsItsWindows(t *testing.T) {
+	tm := newTestTmux(t)
+	id, _ := tm.Create("seo")
+	if _, err := tm.run("set-option", "-t", tm.sessionTarget(), foldersOption, "jobs\tmovvia"); err != nil {
+		t.Fatal(err)
+	}
+	if err := tm.SetFolder(id, "jobs\tmovvia"); err != nil {
+		t.Fatalf("set folder: %v", err)
+	}
+	windows, _ := tm.List()
+	for _, w := range windows {
+		if w.ID == id && (w.Folder != "jobs\tmovvia" || w.Name != "seo") {
+			t.Fatalf("listed as folder %q, name %q", w.Folder, w.Name)
+		}
+	}
+	dup, err := tm.Duplicate(id)
+	if err != nil || folderOf(t, tm, dup) != "jobs\tmovvia" {
+		t.Fatalf("duplicate: %v, folder %q", err, folderOf(t, tm, dup))
 	}
 }
 

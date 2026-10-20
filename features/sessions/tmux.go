@@ -40,7 +40,11 @@ var (
 	ErrNoWindow     = errors.New("no such window")
 )
 
-const listFormat = "#{window_id}\t#{window_index}\t#{window_active}\t#{window_bell_flag}\t#{window_activity_flag}\t#{window_silence_flag}\t#{" + folderOption + "}\t#{window_name}"
+// The folder goes last: tmux escapes a tab in window_name but not in an option,
+// and a folder with a tab in it (validName refuses one, but tmux set by hand
+// does not) split "jobs\tmovvia" + "seo" into folder "jobs", name "movvia\tseo":
+// the agent showed outside the folder however often it was moved in.
+const listFormat = "#{window_id}\t#{window_index}\t#{window_active}\t#{window_bell_flag}\t#{window_activity_flag}\t#{window_silence_flag}\t#{window_name}\t#{" + folderOption + "}"
 
 func (t Tmux) run(args ...string) (string, error) {
 	out, err := exec.Command("tmux", append([]string{"-S", t.Socket}, args...)...).CombinedOutput()
@@ -90,7 +94,7 @@ func (t Tmux) List() ([]Window, error) {
 
 func parseWindows(out string) []Window {
 	windows := []Window{}
-	for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
+	for _, line := range strings.Split(strings.TrimRight(out, "\n"), "\n") { // not TrimSpace: it eats the tab before an empty folder
 		f := strings.SplitN(line, "\t", 8)
 		if len(f) != 8 {
 			continue
@@ -99,7 +103,7 @@ func parseWindows(out string) []Window {
 		fmt.Sscan(f[1], &index)
 		windows = append(windows, Window{
 			ID: f[0], Index: index, Active: f[2] == "1",
-			Bell: f[3] == "1", Activity: f[4] == "1", Silence: f[5] == "1", Folder: f[6], Name: f[7],
+			Bell: f[3] == "1", Activity: f[4] == "1", Silence: f[5] == "1", Name: f[6], Folder: f[7],
 		})
 	}
 	return windows

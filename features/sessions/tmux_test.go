@@ -344,3 +344,60 @@ func TestRenameDeleteMoveFolder(t *testing.T) {
 		t.Fatalf("delete missing: want ErrNoFolder, got %v", err)
 	}
 }
+
+func TestNestedFolders(t *testing.T) {
+	tm := newTestTmux(t)
+	id, _ := tm.Create("seo")
+	for _, f := range []string{"jobs", "movvia", "lpr"} {
+		tm.AddFolder(f)
+	}
+	list := func() string { f, _ := tm.Folders(); return strings.ReplaceAll(strings.Join(f, "|"), folderSep, "/") }
+	if err := tm.NestFolder("movvia", "jobs"); err != nil {
+		t.Fatalf("nest: %v", err)
+	}
+	inner := "jobs" + folderSep + "movvia"
+	if err := tm.SetFolder(id, inner); err != nil {
+		t.Fatalf("set into nested: %v", err)
+	}
+	if got := list(); got != "jobs|jobs/movvia|lpr" {
+		t.Fatalf("after nest: %q", got)
+	}
+	// A folder cannot go inside itself or its own folder.
+	if err := tm.NestFolder("jobs", inner); err != ErrBadName {
+		t.Fatalf("nest into own child: want ErrBadName, got %v", err)
+	}
+	// Moving the parent carries the child and its window along.
+	if err := tm.NestFolder("jobs", "lpr"); err != nil {
+		t.Fatalf("nest parent: %v", err)
+	}
+	if got := list(); got != "lpr|lpr/jobs|lpr/jobs/movvia" {
+		t.Fatalf("after nesting the parent: %q", got)
+	}
+	if f := folderOf(t, tm, id); f != "lpr"+folderSep+"jobs"+folderSep+"movvia" {
+		t.Fatalf("window did not follow: %q", f)
+	}
+	if err := tm.RenameFolder("lpr"+folderSep+"jobs", "trabalhos"); err != nil {
+		t.Fatalf("rename: %v", err)
+	}
+	if got := list(); got != "lpr|lpr/trabalhos|lpr/trabalhos/movvia" {
+		t.Fatalf("after rename: %q", got)
+	}
+	// Dropped beside a top-level folder, a nested one comes out to the top.
+	tm.AddFolder("z")
+	if err := tm.MoveFolder("lpr"+folderSep+"trabalhos", "z", false); err != nil {
+		t.Fatalf("move out: %v", err)
+	}
+	if got := list(); got != "lpr|trabalhos|trabalhos/movvia|z" {
+		t.Fatalf("after moving out: %q", got)
+	}
+	// Deleting a folder drops its subfolders; their windows land in its parent.
+	if err := tm.DeleteFolder("trabalhos"); err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+	if got := list(); got != "lpr|z" {
+		t.Fatalf("after delete: %q", got)
+	}
+	if f := folderOf(t, tm, id); f != "" {
+		t.Fatalf("window should be loose, in %q", f)
+	}
+}

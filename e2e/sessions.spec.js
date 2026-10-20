@@ -240,3 +240,57 @@ test('dragging the line resizes the agent list, double-clicking fits the longest
   expect((await tabs.boundingBox()).width).toBeCloseTo(fitted, 0);
   expect(await cut()).toBe(false);
 });
+
+test('a folder goes inside another by dragging or by its ⋯ Move to, and carries its agents', async ({ page, host }) => {
+  host.tmux('new-window', '-d', '-t', '=main:', '-n', 'seo');
+  const seo = host.windows().find((w) => w.name === 'seo');
+  host.tmux('set-option', '-t', '=main:', '@remotty-folders', 'jobs\nmovvia\nlpr');
+  host.tmux('set-option', '-w', '-t', seo.id, '@remotty-folder', 'movvia');
+  await pair(page, host);
+  const folderList = () => host.tmux('show-options', '-qv', '-t', '=main:', '@remotty-folders');
+  const folderOf = () => host.tmux('show-options', '-wqv', '-t', seo.id, '@remotty-folder').trim();
+  const header = (name) => page.locator('#tab-list li.folder', { has: page.locator('.name', { hasText: new RegExp(`^${name}$`) }) });
+  // The poll redraws the list: a row measured mid-redraw has no box yet, so ask again.
+  const box = async (loc) => { let b = null; await expect.poll(async () => (b = await loc.boundingBox())).not.toBeNull(); return b; };
+
+  // Drag "movvia" onto the middle of "jobs": it goes inside, with "seo".
+  const from = await box(header('movvia'));
+  const to = await box(header('jobs'));
+  await page.mouse.move(from.x + 20, from.y + from.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(from.x + 20, to.y + to.height / 2, { steps: 10 });
+  await expect(header('jobs')).toHaveClass(/drop-into/);
+  await page.mouse.up();
+  await expect.poll(folderList).toBe('jobs\njobs\x1fmovvia\nlpr\n');
+  await expect.poll(folderOf).toBe('jobs\x1fmovvia');
+  await expect(page.locator('#tab-list li.folder .name')).toHaveText(['jobs', 'movvia', 'lpr']);
+  const seoRow = page.locator('#tab-list li[data-id]', { hasText: 'seo' });
+  // Each level sits further in: read all three in one go, so a redraw cannot split them.
+  const indents = () => page.locator('#tab-list li').evaluateAll((rows) => rows
+    .filter((r) => /^(jobs|movvia|seo)$/.test(r.querySelector('.name').textContent))
+    .map((r) => parseFloat(getComputedStyle(r).paddingLeft)));
+  await expect.poll(async () => { const [j, m, s] = await indents(); return j < m && m < s; }).toBe(true);
+
+  // Collapsing "jobs" hides the folder inside it and its agent.
+  await header('jobs').click();
+  await expect(header('movvia')).toHaveCount(0);
+  await expect(seoRow).toHaveCount(0);
+  await expect(header('lpr')).toBeVisible();
+  await header('jobs').click();
+
+  // ⋯ Move to… lists the folders by path; "lpr" takes "jobs" and everything in it.
+  await page.getByRole('button', { name: 'Options for folder jobs' }).click();
+  await page.getByRole('menuitem', { name: 'Move to…' }).click();
+  await expect(page.getByRole('menuitem', { name: 'jobs / movvia' })).toHaveCount(0); // never into itself
+  await page.getByRole('menuitem', { name: 'lpr' }).click();
+  await expect.poll(folderList).toBe('lpr\nlpr\x1fjobs\nlpr\x1fjobs\x1fmovvia\n');
+  await expect.poll(folderOf).toBe('lpr\x1fjobs\x1fmovvia');
+  await expect(header('jobs')).toHaveAttribute('style', /--depth: 1\b/); // the list has caught up, so its ⋯ is the moved folder's
+
+  // And back out to the top level.
+  await page.getByRole('button', { name: 'Options for folder jobs' }).click();
+  await page.getByRole('menuitem', { name: 'Move to…' }).click();
+  await page.getByRole('menuitem', { name: 'Top level' }).click();
+  await expect.poll(folderList).toBe('lpr\njobs\njobs\x1fmovvia\n');
+  await expect(seoRow).toBeVisible();
+});

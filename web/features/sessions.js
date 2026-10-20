@@ -9,6 +9,14 @@ import { keyLabel } from './terminal.js';
 
 const POLL_MS = 2000;
 const COLLAPSED_KEY = 'remotty.collapsed';
+// Folders nest. The host stores each as its path, segments joined by this, and
+// lists every folder right after its parent, so the list in order is the tree.
+const SEP = '\x1f';
+const parentOf = (f) => f.slice(0, Math.max(f.lastIndexOf(SEP), 0));
+const leafOf = (f) => f.slice(f.lastIndexOf(SEP) + 1);
+const depthOf = (f) => (f ? f.split(SEP).length : 0);
+const within = (f, path) => f === path || f.startsWith(path + SEP);
+const pathLabel = (f) => f.split(SEP).join(' / ');
 
 // Storage can be missing or throw (private mode, blocked site data): folders then
 // just start open on every load.
@@ -59,6 +67,10 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
   // A window tagged with a folder this server no longer lists counts as loose.
   const folderOf = (w) => (folders.includes(w.folder) ? w.folder : '');
   const inFolder = (f) => windows.filter((w) => folderOf(w) === f);
+  const inSubtree = (f) => windows.filter((w) => within(folderOf(w), f));
+  // Hidden when it, or any folder around it, is collapsed.
+  const folded = (f) => [...collapsed].some((c) => within(f, c));
+  const ancestorFolded = (f) => folded(parentOf(f)) && parentOf(f) !== '';
 
   // Display order: each folder with its windows, in creation order, then the loose ones.
   const ordered = () => [...folders.flatMap(inFolder), ...inFolder('')];
@@ -83,9 +95,11 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
 
   // The list with nothing typed: folder headers, their windows unless collapsed
   // (the open one always shows, so you can see where you are), then the rest.
+  // A folder inside a collapsed one is not shown at all.
   function tree() {
-    const shown = (f) => inFolder(f).filter((w) => !collapsed.has(f) || w.id === current);
-    return [...folders.flatMap((f) => [{ header: f }, ...shown(f)]), ...inFolder('')];
+    const shown = (f) => inFolder(f).filter((w) => !folded(f) || w.id === current);
+    const header = (f) => (ancestorFolded(f) ? [] : [{ header: f }]);
+    return [...folders.flatMap((f) => [...header(f), ...shown(f)]), ...inFolder('')];
   }
 
   // Alt+1..9 follow the list as shown, top to bottom: collapsing a folder renumbers
@@ -121,17 +135,18 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
 
   // A collapsed folder still lights up when an agent inside it rings or waits.
   function folderRow(f) {
-    const inside = inFolder(f);
+    const inside = inSubtree(f);
     const li = document.createElement('li');
     li.className = 'folder';
     li.dataset.folder = f;
+    li.style.setProperty('--depth', depthOf(f) - 1);
     li.setAttribute('aria-expanded', String(!collapsed.has(f)));
     li.dataset.state = ['bell', 'waiting', 'activity'].find((s) => inside.some((w) => stateOf(w) === s)) || 'idle';
     const dot = document.createElement('span');
     dot.className = 'dot';
     const name = document.createElement('span');
     name.className = 'name';
-    name.textContent = f; // textContent: any client may name a folder
+    name.textContent = leafOf(f); // textContent: any client may name a folder
     const count = document.createElement('span');
     count.className = 'count';
     count.textContent = inside.length;
@@ -139,7 +154,7 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
     more.className = 'more';
     more.type = 'button';
     more.textContent = '⋯';
-    more.setAttribute('aria-label', `Options for folder ${f}`);
+    more.setAttribute('aria-label', `Options for folder ${leafOf(f)}`);
     more.setAttribute('aria-haspopup', 'menu');
     li.append(name, dot, count, more);
     li.addEventListener('click', (e) => {
@@ -151,14 +166,44 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
   }
 
   function showFolderMenu(f, anchor) {
+    const moveTo = menuItem('Move to…', () => showParents(f, anchor), true);
+    moveTo.disabled = !parentsFor(f).length;
     menu.replaceChildren(
       menuItem('New agent', () => newAgentIn(f)),
       menuItem('Rename', () => renameFolder(f)),
+      moveTo,
       menuItem('Delete', () => deleteFolder(f)),
     );
     menu.showPopover();
     placeMenu(anchor);
     menu.querySelector('button').focus();
+  }
+
+  // Where folder f can go: any folder but itself, its own folders and where it already is.
+  const parentsFor = (f) => [...folders.filter((p) => !within(p, f) && p !== parentOf(f)), ...(parentOf(f) ? [''] : [])];
+
+  function showParents(f, anchor) {
+    menu.replaceChildren(...parentsFor(f).map((p) => menuItem(p ? pathLabel(p) : 'Top level', () => nestFolder(f, p))));
+    placeMenu(anchor);
+    menu.querySelector('button').focus();
+  }
+
+  async function nestFolder(f, parent) {
+    await api('PUT', `/api/folders/${encodeURIComponent(f)}/parent`, { name: parent }).catch(onError);
+    carryCollapsed(f, parent ? parent + SEP + leafOf(f) : leafOf(f));
+    collapsed.delete(parent); // you just put it there: show it
+    saveCollapsed(collapsed);
+    refresh();
+  }
+
+  // A folder that moves or is renamed keeps its own collapsed state, and so do the ones inside it.
+  function carryCollapsed(old, now) {
+    for (const c of [...collapsed]) {
+      if (!within(c, old)) continue;
+      collapsed.delete(c);
+      collapsed.add(now + c.slice(old.length));
+    }
+    saveCollapsed(collapsed);
   }
 
   // Cancel creates nothing; an empty name makes an unnamed agent, as in the finder.
@@ -168,17 +213,17 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
   }
 
   async function renameFolder(f) {
-    const name = prompt('Rename folder:', f)?.trim();
-    if (!name || name === f) return;
+    const name = prompt('Rename folder:', leafOf(f))?.trim();
+    if (!name || name === leafOf(f)) return;
     await api('PATCH', `/api/folders/${encodeURIComponent(f)}`, { name }).catch(onError);
-    if (collapsed.delete(f)) collapsed.add(name);
-    saveCollapsed(collapsed);
+    carryCollapsed(f, parentOf(f) ? parentOf(f) + SEP + name : name);
     refresh();
   }
 
-  // The agents inside are not closed: they go back to the loose list.
+  // The agents inside are not closed: they go up to the folder around it, or loose.
   async function deleteFolder(f) {
-    if (!confirm(`Delete folder "${f}"? Its agents keep running, outside any folder.`)) return;
+    const where = parentOf(f) ? `in "${pathLabel(parentOf(f))}"` : 'outside any folder';
+    if (!confirm(`Delete folder "${pathLabel(f)}" and the folders inside it? Its agents keep running, ${where}.`)) return;
     await api('DELETE', `/api/folders/${encodeURIComponent(f)}`).catch(onError);
     collapsed.delete(f);
     saveCollapsed(collapsed);
@@ -207,6 +252,7 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
     li.dataset.state = stateOf(w);
     li.dataset.folder = folderOf(w);
     li.classList.toggle('in-folder', !query() && folderOf(w) !== '');
+    li.style.setProperty('--depth', query() ? 0 : depthOf(folderOf(w)));
     li.setAttribute('aria-current', String(w.id === current));
     li.title = 'Double-tap to rename';
 
@@ -293,16 +339,18 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
   list.addEventListener('dragstart', (e) => e.preventDefault()); // no native ghost image
 
   // The row under the pointer, and whether the drop lands after its middle.
-  // A window dropped on a folder header goes into it; a dragged folder only
-  // lands next to another folder, so folders reorder among themselves.
+  // A window dropped on a folder header goes into it. A dragged folder only lands
+  // on another folder: on the middle of its row it goes inside, near an edge it
+  // goes beside it. It never lands on itself or a folder of its own.
   function dropSpot(e, dragging = drag.li) {
     const isFolder = dragging.classList.contains('folder');
     const over = document.elementsFromPoint(e.clientX, e.clientY).find((el) => el.matches?.(isFolder ? 'li.folder' : 'li[data-id], li.folder') && el !== dragging);
-    if (!over) return null;
+    if (!over || (isFolder && within(over.dataset.folder, dragging.dataset.folder))) return null;
     if (!isFolder && over.classList.contains('folder')) return { over, into: true };
     const r = over.getBoundingClientRect();
-    const after = horizontal() ? e.clientX > r.left + r.width / 2 : e.clientY > r.top + r.height / 2;
-    return { over, after };
+    const [at, size] = horizontal() ? [e.clientX - r.left, r.width] : [e.clientY - r.top, r.height];
+    if (isFolder && at > size / 4 && at < size * 3 / 4) return { over, into: true };
+    return { over, after: at > size / 2 };
   }
 
   function markDrop(e) {
@@ -326,7 +374,10 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
   // Dropped next to a window, the dragged one also joins that window's folder,
   // so dragging beside a loose tab is how a window leaves its folder.
   async function drop(li, spot) {
-    if (li.classList.contains('folder')) return moveFolder(li.dataset.folder, spot.over.dataset.folder, spot.after);
+    if (li.classList.contains('folder')) {
+      if (spot.into) return nestFolder(li.dataset.folder, spot.over.dataset.folder);
+      return moveFolder(li.dataset.folder, spot.over.dataset.folder, spot.after);
+    }
     const folder = spot.over.dataset.folder;
     if (!spot.into) await move(li.dataset.id, spot.over.dataset.id, spot.after, false);
     if (folder !== li.dataset.folder) await setFolder(li.dataset.id, folder);
@@ -335,6 +386,7 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
 
   async function moveFolder(name, target, after) {
     await api('POST', `/api/folders/${encodeURIComponent(name)}/move`, { target, after }).catch(onError);
+    carryCollapsed(name, parentOf(target) ? parentOf(target) + SEP + leafOf(name) : leafOf(name));
     await refresh();
   }
 
@@ -360,7 +412,7 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
 
   function showFolders(w, anchor) {
     const here = folderOf(w);
-    const targets = folders.filter((f) => f !== here).map((f) => menuItem(f, () => moveToFolder(w, f)));
+    const targets = folders.filter((f) => f !== here).map((f) => menuItem(pathLabel(f), () => moveToFolder(w, f)));
     if (here) targets.push(menuItem('No folder', () => moveToFolder(w, '')));
     menu.replaceChildren(...targets);
     placeMenu(anchor);

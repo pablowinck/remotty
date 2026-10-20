@@ -89,8 +89,10 @@ const folderOf = (host, name) => {
   return host.tmux('show-options', '-wqv', '-t', w.id, '@remotty-folder').trim();
 };
 const dragTo = async (page, from, to, at) => {
-  const a = await from.boundingBox();
-  const b = await to.boundingBox();
+  // The poll redraws the list: a row measured mid-redraw has no box yet, so ask again.
+  const box = async (loc) => { let r = null; await expect.poll(async () => (r = await loc.boundingBox())).not.toBeNull(); return r; };
+  const a = await box(from);
+  const b = await box(to);
   await page.mouse.move(a.x + 20, a.y + a.height / 2);
   await page.mouse.down();
   await page.mouse.move(a.x + 20, b.y + b.height * at, { steps: 10 });

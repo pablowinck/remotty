@@ -88,7 +88,9 @@ remotty revoke ID   # unpair; its open terminals close within a second
 - **Folders** group agents, say one per project or line of work. Create one in the
   finder: type a name and pick `+ New folder`, the row below `+ New agent`. Tap a folder to collapse or expand it, drag it to reorder the folders,
   and use its `⋯` to create an agent right inside it, rename it or delete it (deleting keeps its agents running,
-  outside any folder). A collapsed folder still
+  in the folder around it or outside any). Folders nest: drop a folder on the middle of another to put
+  it inside, near its edge to put it beside, or pick its `⋯` › `Move to…`; its
+  agents and folders go along. A collapsed folder still
   shows the tab you have open, and its dot lights up when an agent inside rings.
   Folders are kept in tmux, so every device sees them. Whether a folder is
   collapsed is remembered per browser.

@@ -22,6 +22,7 @@ func (t Tmux) Routes(mux *http.ServeMux, wrap func(http.HandlerFunc) http.Handle
 	mux.HandleFunc("PATCH /api/folders/{name}", wrap(t.handleRenameFolder))
 	mux.HandleFunc("DELETE /api/folders/{name}", wrap(t.handleDeleteFolder))
 	mux.HandleFunc("POST /api/folders/{name}/move", wrap(t.handleMoveFolder))
+	mux.HandleFunc("PUT /api/folders/{name}/parent", wrap(t.handleNestFolder))
 	mux.HandleFunc("GET /api/windows/{id}/tty", wrap(func(w http.ResponseWriter, r *http.Request) {
 		argv, err := t.AttachCommand(r.PathValue("id"))
 		if respond(w, err) {
@@ -108,6 +109,14 @@ func (t Tmux) handleDeleteFolder(w http.ResponseWriter, r *http.Request) {
 func (t Tmux) handleMoveFolder(w http.ResponseWriter, r *http.Request) {
 	var req moveBody
 	if decode(w, r, &req) && respond(w, t.MoveFolder(r.PathValue("name"), req.Target, req.After)) {
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+// handleNestFolder takes {"name": ""} to put the folder back at the top level.
+func (t Tmux) handleNestFolder(w http.ResponseWriter, r *http.Request) {
+	var req nameBody
+	if decode(w, r, &req) && respond(w, t.NestFolder(r.PathValue("name"), req.Name)) {
 		w.WriteHeader(http.StatusNoContent)
 	}
 }

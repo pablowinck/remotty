@@ -75,7 +75,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
 #tab-list li.folder::before { content: "▾"; width: .8rem; }
 #tab-list li.folder[aria-expanded="false"]::before { content: "▸"; }
 #tab-list li.folder .count { font-size: .75rem; font-variant-numeric: tabular-nums; }
-#tab-list li.in-folder { padding-left: 1.6rem; }
+#tab-list li.folder, #tab-list li.in-folder { padding-left: calc(.6rem + var(--depth, 0) * 1rem); } /* --depth: set per row in sessions.js */
 #tab-actions { display: flex; gap: .3rem; margin: .3rem; }
 #new-tab { flex: 1; font-size: 1.2rem; }
 #restore { flex: none; color: var(--muted); }
@@ -148,7 +148,7 @@ kbd {
   #tab-list li.drop-after { box-shadow: inset -3px 0 var(--accent); }
   /* Too small to hit next to every name: only the open tab gets its ⋯. */
   #tab-list li:not([aria-current="true"]):not(.folder) .more { display: none; }
-  #tab-list li.in-folder { padding-left: .55rem; }
+  #tab-list li.folder, #tab-list li.in-folder { padding-left: .55rem; }
   /* The finder is an icon-sized button until tapped, then takes the whole row. */
   #find-box { flex: none; margin: .3rem; }
   #find-box:has(#find:focus) { flex: 1; }

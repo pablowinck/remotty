@@ -212,3 +212,31 @@ test("an agent's ⋯ Duplicate reruns its command in the same directory and fold
   await expect.poll(() => host.capture(copy.id)).toContain('rodando-15-/tmp');
   await expect(page.locator('#terminal .xterm-rows')).toContainText('rodando-15-/tmp');
 });
+
+test('dragging the line resizes the agent list, double-clicking fits the longest name, and it survives a reload', async ({ page, host }) => {
+  const long = 'um-agente-com-um-nome-bem-comprido-para-telas-grandes';
+  host.tmux('new-window', '-d', '-t', '=main:', '-n', long);
+  await pair(page, host);
+  const tabs = page.locator('#tabs');
+  const name = page.locator('#tab-list .name', { hasText: long });
+  const cut = () => name.evaluate((e) => e.scrollWidth > e.clientWidth);
+  await expect.poll(cut).toBe(true); // anchor: at the default width the name is cut
+
+  const line = await page.locator('#tabs-resize').boundingBox();
+  const before = (await tabs.boundingBox()).width;
+  await page.mouse.move(line.x + line.width / 2, line.y + 100);
+  await page.mouse.down();
+  await page.mouse.move(line.x + 120, line.y + 100, { steps: 5 });
+  await page.mouse.up();
+  await expect.poll(async () => (await tabs.boundingBox()).width).toBeGreaterThan(before + 100);
+
+  await page.locator('#tabs-resize').dblclick();
+  await expect.poll(cut).toBe(false);
+  const fitted = (await tabs.boundingBox()).width;
+  expect(fitted).toBeGreaterThan(before + 120);
+
+  await page.reload();
+  await expect(name).toBeVisible();
+  expect((await tabs.boundingBox()).width).toBeCloseTo(fitted, 0);
+  expect(await cut()).toBe(false);
+});

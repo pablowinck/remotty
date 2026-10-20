@@ -110,6 +110,8 @@ remotty revoke ID   # unpair; its open terminals close within a second
 - Drag a tab to reorder the agents (on a touch screen, hold it first so a swipe
   still scrolls), or move the open one with Alt+Shift+↑/↓. The order is tmux's
   own window order, so ssh and every other device see it.
+- Drag the line between the agent list and the terminal to widen or narrow the
+  list; double-click it to fit the longest name. Each browser keeps its own width.
 - Drag a finger down on the terminal to scroll back through its history (tmux
   copy mode; `q` leaves it). This needs `set -g mouse on` in `~/.tmux.conf`.
 - Drag the mouse over text to copy it to the system clipboard: tmux copies on

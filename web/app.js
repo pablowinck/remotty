@@ -2,6 +2,7 @@
 import { api, Unauthorized } from './features/api.js';
 import { showPairing } from './features/access.js';
 import { createSessions } from './features/sessions.js';
+import { wireSidebar } from './features/sidebar.js';
 import { createTerminal, keyLabel, shortcutOf } from './features/terminal.js';
 
 const status = document.getElementById('status');
@@ -41,6 +42,7 @@ async function main() {
   }
   document.getElementById('app').hidden = false;
   followVisualViewport();
+  wireSidebar();
   document.querySelectorAll('#app kbd').forEach((k) => (k.textContent = keyLabel(k.textContent)));
   // App shortcuts. The terminal is told which keys are ours so it never sends
   // them to the shell (see attachCustomKeyEventHandler in terminal.js).

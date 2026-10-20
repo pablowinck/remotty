@@ -56,7 +56,10 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
 
-#tabs { grid-area: tabs; display: flex; flex-direction: column; border-right: 1px solid var(--line); min-height: 0; }
+#tabs { grid-area: tabs; display: flex; flex-direction: column; border-right: 1px solid var(--line); min-height: 0; position: relative; }
+/* Wider than the 1px line it sits on, so it is easy to grab. */
+#tabs-resize { position: absolute; top: 0; bottom: 0; right: -4px; width: 8px; z-index: 1; cursor: col-resize; touch-action: none; }
+#tabs-resize:hover, #tabs-resize:focus-visible { background: linear-gradient(var(--accent), var(--accent)) center / 2px 100% no-repeat; outline: none; }
 #tab-list { list-style: none; margin: 0; padding: .3rem; overflow-y: auto; flex: 1; }
 #tab-list li { display: flex; align-items: center; gap: .35rem; padding: .55rem .4rem .55rem .6rem; border-radius: 6px; cursor: pointer; }
 #tab-list li[aria-current="true"] { background: var(--panel); box-shadow: inset 3px 0 var(--accent); }
@@ -149,7 +152,7 @@ kbd {
   /* The finder is an icon-sized button until tapped, then takes the whole row. */
   #find-box { flex: none; margin: .3rem; }
   #find-box:has(#find:focus) { flex: 1; }
-  #find-key, #tabs-hint, #tab-list .hotkey { display: none; }
+  #find-key, #tabs-hint, #tab-list .hotkey, #tabs-resize { display: none; }
   #find { width: 2.9rem; min-height: 2.75rem; padding: .5rem .6rem .5rem 2.4rem; background: var(--bg) url(/search.svg) no-repeat .8rem 50% / 1.2rem; }
   #find::placeholder { color: transparent; }
   #find:focus { width: 100%; }

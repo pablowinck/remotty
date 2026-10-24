@@ -377,3 +377,36 @@ func TestRenewalNeverResurrectsARevokedDevice(t *testing.T) {
 		t.Fatal("renewal brought a revoked device back")
 	}
 }
+
+// The host slides a used device's expiry forward; the browser must hear about
+// it, or the cookie dies on its first date and a phone used daily is logged out.
+func TestUseRenewsTheCookieNotOnlyTheDevice(t *testing.T) {
+	s, c := newStore(t)
+	g := Guard{Store: s, Origins: []string{origin}}
+	mux := http.NewServeMux()
+	mux.HandleFunc("POST /api/pair", g.HandlePair)
+	mux.HandleFunc("GET /api/me", g.RequireDevice(HandleMe))
+	h := g.Wrap(mux)
+	paired := pairCookie(t, g, h)
+
+	c.t = c.t.Add(20 * 24 * time.Hour)
+	w := request(h, "GET", "/api/me", "remotty.test", "", paired.Value, "")
+	if w.Code != http.StatusOK {
+		t.Fatalf("me = %d", w.Code) // anchor: the device is still paired
+	}
+	var renewed *http.Cookie
+	for _, k := range w.Result().Cookies() {
+		if k.Name == CookieName {
+			renewed = k
+		}
+	}
+	if renewed == nil || renewed.Value != paired.Value {
+		t.Fatalf("no renewed cookie on an authenticated request: %+v", w.Result().Cookies())
+	}
+	if want := c.t.Add(deviceTTL); !renewed.Expires.Equal(want.Truncate(time.Second)) {
+		t.Fatalf("cookie expires %v, want %v (paired cookie said %v)", renewed.Expires, want, paired.Expires)
+	}
+	if !renewed.Secure || !renewed.HttpOnly || renewed.SameSite != http.SameSiteStrictMode {
+		t.Fatalf("renewed cookie flags too loose: %+v", renewed)
+	}
+}

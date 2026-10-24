@@ -138,6 +138,7 @@ func (g Guard) RequireDevice(next http.HandlerFunc) http.HandlerFunc {
 			http.Error(w, "not paired", http.StatusUnauthorized)
 			return
 		}
+		setDeviceCookie(w, r, c.Value, dev)
 		ctx := context.WithValue(g.watch(r.Context(), dev.ID), deviceKey{}, dev)
 		next(w, r.WithContext(ctx))
 	}
@@ -191,12 +192,20 @@ func (g Guard) HandlePair(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "could not pair", http.StatusInternalServerError)
 		return
 	}
+	setDeviceCookie(w, r, token, dev)
+	writeJSONResponse(w, map[string]string{"name": dev.Name})
+}
+
+// setDeviceCookie (re)issues the device cookie with the device's current
+// expiry. Every authenticated request sends it again: Lookup slides the expiry
+// on the host, and a cookie set only at pairing kept its first date, so a phone
+// in daily use was logged out 30 days after pairing.
+func setDeviceCookie(w http.ResponseWriter, r *http.Request, token string, dev Device) {
 	name, secure := cookieFor(r)
 	http.SetCookie(w, &http.Cookie{
 		Name: name, Value: token, Path: "/", Expires: dev.Expires,
 		Secure: secure, HttpOnly: true, SameSite: http.SameSiteStrictMode,
 	})
-	writeJSONResponse(w, map[string]string{"name": dev.Name})
 }
 
 // HandleMe tells the UI which device it is, or 401 through RequireDevice.

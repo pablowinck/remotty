@@ -1,5 +1,5 @@
 import { test, expect, pair } from './fixtures.js';
-import { readFileSync, readdirSync } from 'node:fs';
+import { mkdirSync, readFileSync, readdirSync, truncateSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 // A tiny valid PNG, so the test exercises a real image and not just text.
@@ -29,6 +29,33 @@ test('the path is pasted to a program that takes bracketed paste', async ({ page
   const pasted = /got:\^\[\[200~\S+\/uploads\/\S+colado\.png\^\[\[201~/;
   await expect.poll(() => host.capture(window)).toMatch(pasted);
   await expect(page.locator('#terminal .xterm-rows')).toContainText(pasted);
+});
+
+// Local: a file over 50 MB is not copied. The host finds it by name and size and
+// pastes its own path, escaped as a desktop terminal does.
+test('a file too big to upload is pasted where it already is on the host', async ({ page, host }) => {
+  await pair(page, host);
+  const MB50 = 50 * 1024 * 1024;
+  mkdirSync(join(host.dir, 'Downloads', 'pasta x'), { recursive: true });
+  const big = join(host.dir, 'Downloads', 'pasta x', 'grande (1).mov');
+  writeFileSync(big, '');
+  truncateSync(big, MB50 + 1);
+  const window = host.windows()[0].id;
+  host.tmux('send-keys', '-t', window, '-l', "printf 'got:%s\\n' ");
+  const drop = await page.evaluateHandle((size) => {
+    const dt = new DataTransfer();
+    dt.items.add(new File([new Uint8Array(size)], 'grande (1).mov'));
+    return dt;
+  }, MB50 + 1);
+  await page.locator('#terminal').dispatchEvent('drop', { dataTransfer: drop });
+
+  await expect.poll(() => host.capture(window)).toContain('pasta\\ x/grande\\ \\(1\\).mov');
+  host.tmux('send-keys', '-t', window, 'Enter');
+  await expect.poll(() => host.capture(window)).toContain(`got:${big}`); // the shell reads it as one path
+  await expect(page.locator('#terminal .xterm-rows')).toContainText(`got:${big}`);
+  let files = [];
+  try { files = readdirSync(join(host.dir, 'state', 'uploads')); } catch {}
+  expect(files).toEqual([]); // found, not copied
 });
 
 test('an unpaired browser cannot upload', async ({ page, host }) => {

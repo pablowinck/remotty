@@ -100,7 +100,9 @@ remotty revoke ID   # unpair; its open terminals close within a second
 - 📎 attaches a photo or file: it is saved on the host (`~/.local/state/remotty/uploads`,
   private to you) and its path is pasted at the prompt, the way a desktop
   terminal pastes a dropped file, so Claude Code attaches an image as
-  `[Image #1]`. Up to 50 MB; nothing leaves the host. Pick
+  `[Image #1]`. Up to 50 MB; nothing leaves the host. A bigger file is not
+  copied: the host finds it in your home folder by name and size and pastes its
+  own path (so this works for files dropped on the host itself). Pick
   several at once, or drop files from the desktop anywhere on the page.
 - 🎤 records a voice note: tap to start (the button pulses), tap again to stop.
   It is uploaded like an attachment and its path is typed at the prompt; what

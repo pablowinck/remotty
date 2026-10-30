@@ -48,11 +48,18 @@ function wireDrop(deps) {
   });
 }
 
+// uploads.MaxBytes on the host.
+const MAX_BYTES = 50 << 20;
+
 // upload saves the file on the host and returns its path, or null on failure.
+// Local: a file too big to copy is looked up on the host by name and size, so
+// one dropped on the host itself keeps its own path.
 async function upload(blob, name, { onStatus }) {
-  onStatus(`Uploading ${name}…`);
+  const big = blob.size > MAX_BYTES;
+  onStatus(big ? `Finding ${name} on the host…` : `Uploading ${name}…`);
+  const q = `name=${encodeURIComponent(name)}`;
   try {
-    const res = await fetch(`/api/uploads?name=${encodeURIComponent(name)}`, { method: 'POST', body: blob });
+    const res = await (big ? fetch(`/api/uploads/find?${q}&size=${blob.size}`) : fetch(`/api/uploads?${q}`, { method: 'POST', body: blob }));
     if (!res.ok) throw new Error((await res.text()).trim() || res.statusText);
     return (await res.json()).path;
   } catch (e) {
@@ -61,13 +68,14 @@ async function upload(blob, name, { onStatus }) {
   }
 }
 
-// Paths are built by the host from safe characters only, so no quoting is needed.
+// Paths of uploads are built by the host from safe characters only; a found one
+// can hold spaces or parentheses, escaped as a desktop terminal does.
 // Pasted, as a desktop terminal pastes a dropped file: Claude Code attaches a
 // pasted image path as the image, and leaves a typed one as plain text.
 async function attach(blob, name, deps) {
   const path = await upload(blob, name, deps);
   if (!path) return;
-  deps.paste(path);
+  deps.paste(path.replace(/[\s\\'"`$!&|;<>()[\]{}*?#]/g, '\\$&'));
   deps.send(' ');
   deps.onStatus('');
 }

@@ -99,6 +99,7 @@ func routes(guard access.Guard, tm sessions.Tmux, uploadDir uploads.Dir, restore
 	tm.UndoRoutes(mux, guard.RequireDevice)      // local: ⌘W closes undoably, ⌘Z reopens
 	terminal.OpenRoute(mux, guard.RequireDevice) // local: ⌘-click opens in the default browser
 	uploadDir.Routes(mux, guard.RequireDevice)
+	uploads.FindRoute(mux, guard.RequireDevice, tm.Socket) // local: a file too big to upload is pasted where it is
 	if restorer != nil {
 		restorer.Routes(mux, guard.RequireDevice)
 	}

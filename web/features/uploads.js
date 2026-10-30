@@ -1,15 +1,15 @@
 // Attach: send a photo or file to the host and type its path into the
 // terminal, where an agent can read it ("look at /path/to/photo.png").
-export function wireUploads({ send, onStatus }) {
+export function wireUploads(deps) {
   const input = document.getElementById('attach-input');
   document.querySelector('[data-action="attach"]').addEventListener('click', () => input.click());
   input.addEventListener('change', async () => {
     const files = [...input.files];
     input.value = ''; // the same files can be picked again
-    await attachAll(files, { send, onStatus });
+    await attachAll(files, deps);
   });
-  wireDrop({ send, onStatus });
-  wireRecorder(document.querySelector('[data-action="record"]'), { send, onStatus });
+  wireDrop(deps);
+  wireRecorder(document.querySelector('[data-action="record"]'), deps);
 }
 
 // One at a time, so the paths reach the prompt in the order they were chosen.
@@ -62,10 +62,13 @@ async function upload(blob, name, { onStatus }) {
 }
 
 // Paths are built by the host from safe characters only, so no quoting is needed.
+// Pasted, as a desktop terminal pastes a dropped file: Claude Code attaches a
+// pasted image path as the image, and leaves a typed one as plain text.
 async function attach(blob, name, deps) {
   const path = await upload(blob, name, deps);
   if (!path) return;
-  deps.send(`${path} `);
+  deps.paste(path);
+  deps.send(' ');
   deps.onStatus('');
 }
 

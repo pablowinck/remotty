@@ -17,6 +17,20 @@ test('attaching a photo saves it on the host and types its path into the termina
   expect(path.startsWith(join(host.dir, 'state', 'uploads'))).toBe(true);
 });
 
+// A program that asked for bracketed paste, as Claude Code does, gets the path
+// pasted: that is how it tells a dropped image from a path typed by hand.
+test('the path is pasted to a program that takes bracketed paste', async ({ page, host }) => {
+  await pair(page, host);
+  const window = host.windows()[0].id;
+  host.tmux('send-keys', '-t', window, `printf '\\033[?2004h'; echo ready-$((2*3)); IFS= read -rsd ' ' x; printf 'got:%s\\n' "$x" | cat -v`, 'Enter');
+  await expect(page.locator('#terminal .xterm-rows')).toContainText('ready-6'); // xterm has seen the mode by now
+  await page.locator('#attach-input').setInputFiles({ name: 'colado.png', mimeType: 'image/png', buffer: PNG });
+
+  const pasted = /got:\^\[\[200~\S+\/uploads\/\S+colado\.png\^\[\[201~/;
+  await expect.poll(() => host.capture(window)).toMatch(pasted);
+  await expect(page.locator('#terminal .xterm-rows')).toContainText(pasted);
+});
+
 test('an unpaired browser cannot upload', async ({ page, host }) => {
   await page.goto(host.origin);
   const status = await page.evaluate(async () => (await fetch('/api/uploads?name=x.png', { method: 'POST', body: 'x' })).status);

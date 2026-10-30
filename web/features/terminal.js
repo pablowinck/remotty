@@ -178,7 +178,7 @@ export function createTerminal({ onStatus, isShortcut = () => false }) {
   wireKeyBar({ send, toggleCtrl: () => setCtrl(!ctrlArmed), focus: () => byTouch() || term.focus(), onStatus });
   wireTouchScroll(document.getElementById('terminal'), term);
   wireWheel(term);
-  wireUploads({ send, onStatus });
+  wireUploads({ send, paste: (text) => term.paste(text), onStatus });
 
   // After a tap, blur instead: a focused field (the finder, the terminal) keeps the soft keyboard up.
   const focus = () => (byTouch() ? document.activeElement?.blur() : term.focus());

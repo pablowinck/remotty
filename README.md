@@ -98,8 +98,9 @@ remotty revoke ID   # unpair; its open terminals close within a second
   Folders are kept in tmux, so every device sees them. Whether a folder is
   collapsed is remembered per browser.
 - 📎 attaches a photo or file: it is saved on the host (`~/.local/state/remotty/uploads`,
-  private to you) and its path is typed at the prompt, so you can say
-  `look at <path>` to the agent. Up to 50 MB; nothing leaves the host. Pick
+  private to you) and its path is pasted at the prompt, the way a desktop
+  terminal pastes a dropped file, so Claude Code attaches an image as
+  `[Image #1]`. Up to 50 MB; nothing leaves the host. Pick
   several at once, or drop files from the desktop anywhere on the page.
 - 🎤 records a voice note: tap to start (the button pulses), tap again to stop.
   It is uploaded like an attachment and its path is typed at the prompt; what

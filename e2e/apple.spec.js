@@ -8,9 +8,8 @@ test.describe('on a Mac', () => {
     host.tmux('new-window', '-d', '-t', '=main:', '-n', 'agente-1');
     await pair(page, host);
     await expect(page.locator('#find-key')).toHaveText('⌃⇧K');
-    await expect(page.locator('#tabs-hint')).toContainText('⌥1–9');
     await expect(page.locator('#tab-list li[data-index="1"] .hotkey')).toHaveText('⌥2'); // second row
-    await expect(page.locator('#tabs-hint')).not.toContainText('Alt'); // anchor above: the hint is there
+    await expect(page.locator('#tabs')).not.toContainText('Alt'); // anchor above: the chips are there
   });
 
   // Option+2 on a Mac types "™" (key) on the Digit2 key (code). Matching on the

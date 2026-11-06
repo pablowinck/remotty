@@ -1,10 +1,11 @@
 import { test, expect, pair } from './fixtures.js';
 
 // The finder's hint and shortcut chip must be readable, not clipped, on the
-// tablet (the default project viewport) and on a desktop window.
-for (const [label, viewport] of [['tablet', null], ['desktop', { width: 1440, height: 900 }]]) {
+// tablet (the default project viewport) and on a desktop with a mouse, where
+// the sidebar is narrower.
+for (const [label, use] of [['tablet', {}], ['desktop', { viewport: { width: 1440, height: 900 }, isMobile: false, hasTouch: false }]]) test.describe(label, () => {
+  test.use(use);
   test(`${label}: the finder shows its whole hint and its shortcut chip`, async ({ page, host }) => {
-    if (viewport) await page.setViewportSize(viewport);
     await pair(page, host);
     const fit = await page.locator('#find').evaluate((input) => {
       const s = getComputedStyle(input);
@@ -30,7 +31,7 @@ for (const [label, viewport] of [['tablet', null], ['desktop', { width: 1440, he
     expect(c.width).toBeLessThanOrEqual(padRight);
     expect(c.x - fit.textEnd).toBeGreaterThanOrEqual(8); // breathing room between hint and chip
   });
-}
+});
 
 test('each of the first agents shows the Alt shortcut that opens it', async ({ page, host }) => {
   for (let i = 1; i <= 11; i++) host.tmux('new-window', '-d', '-t', '=main:', '-n', `agente-${i}`);
@@ -87,18 +88,46 @@ test('Alt+Down and Alt+Up move to the next and previous agent', async ({ page, h
   await expect(current).toHaveText('agente-3');
 });
 
-test('the sidebar says how to move between agents', async ({ page, host }) => {
+// Narrow by default, so the terminal gets the width, yet a typical name fits.
+// The scrollbar is dark, on the sidebar's own background, not a light rail.
+test.describe('with a mouse', () => {
+  test.use({ viewport: { width: 1440, height: 900 }, isMobile: false, hasTouch: false });
+  test('the sidebar is narrow, and its scrollbar sits dark on its own background', async ({ page, host }) => {
+  for (let i = 1; i <= 40; i++) host.tmux('new-window', '-d', '-t', '=main:', '-n', `agente-${i}`);
   await pair(page, host);
-  await expect(page.locator('#tabs-hint')).toBeVisible();
-  await expect(page.locator('#tabs-hint')).toContainText('Alt');
-  // One shortcut per line, each on a single line: a hint that wraps mid-phrase
-  // is hard to read at a glance.
-  const lines = page.locator('#tabs-hint li');
-  await expect(lines).toHaveText([/open/, /next/, /reorder/]);
-  for (const line of await lines.all()) {
-    const { height, lineHeight } = await line.evaluate((e) => ({ height: e.getBoundingClientRect().height, lineHeight: parseFloat(getComputedStyle(e).lineHeight) }));
-    expect(height).toBeLessThan(lineHeight * 1.6);
-  }
+  expect((await page.locator('#tabs').boundingBox()).width).toBeLessThanOrEqual(212);
+  const list = page.locator('#tab-list');
+  expect(await list.evaluate((e) => e.scrollHeight > e.clientHeight)).toBe(true); // anchor: there is a scrollbar to colour
+  const [thumb, track] = (await list.evaluate((e) => getComputedStyle(e).scrollbarColor)).match(/rgb\([^)]*\)/g);
+  const tabsBg = await page.locator('#tabs').evaluate((e) => getComputedStyle(e).backgroundColor);
+  expect(track).toBe(tabsBg);
+  const level = (c) => Math.max(...c.match(/\d+/g).slice(0, 3).map(Number));
+  expect(level(thumb)).toBeLessThan(90); // a dark grey, not the light default
+  expect(level(thumb)).toBeGreaterThan(level(tabsBg)); // still visible against the track
+  });
+
+  // Narrower, the row keeps the name whole: ⋯ appears over the chip, not beside it.
+  test('the row under the mouse shows ⋯ without cutting the name', async ({ page, host }) => {
+    host.tmux('new-window', '-d', '-t', '=main:', '-n', 'pe-api-banking');
+    await pair(page, host);
+    const row = page.locator('#tab-list li', { hasText: 'pe-api-banking' });
+    await row.hover();
+    await expect(row.locator('.more')).toHaveCSS('opacity', '1');
+    await expect(row.locator('.hotkey')).toBeHidden(); // no half chip peeking out from under ⋯
+    await expect(page.locator('#tab-list li[aria-current="true"] .hotkey')).toBeHidden(); // the open row shows ⋯ too
+    expect(await row.locator('.name').evaluate((e) => e.scrollWidth > e.clientWidth)).toBe(false);
+    await row.locator('.more').click();
+    await expect(page.getByRole('menuitem', { name: 'Duplicate' })).toBeVisible();
+  });
+});
+
+// The sidebar keeps no cheat sheet of shortcuts: each row's chip already says
+// how to open it, and the list gets the room.
+test('the sidebar shows no shortcut cheat sheet, only the chips on the rows', async ({ page, host }) => {
+  await pair(page, host);
+  await expect(page.locator('#tab-list li[data-index="0"] .hotkey')).toHaveText('Alt 1'); // anchor: the shortcuts are still told
+  await expect(page.locator('#tabs')).not.toContainText('drag to reorder');
+  await expect(page.locator('#tabs')).not.toContainText('next');
 });
 
 // Chips must not cost the names: with the sidebar at its normal width, a

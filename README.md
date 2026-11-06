@@ -127,6 +127,9 @@ remotty revoke ID   # unpair; its open terminals close within a second
   release and sends it out as OSC 52. Programs that copy by themselves (Claude
   Code's copy-on-select, vim) work too: remotty sets tmux `set-clipboard on`.
   The page only ever writes the clipboard; an OSC 52 read request is ignored.
+- On a phone or tablet, hold a finger still on the terminal to copy: the screen
+  opens as plain text, where the phone's own selection works (hold a word, drag
+  the handles, Copy). `Copy all` copies the whole screen, `Done` goes back.
 - The bottom bar has the keys a tablet keyboard lacks: Esc, Tab, Enter, a sticky Ctrl,
   arrows, ^C and paste.
 - On a phone held upright the page fits the screen exactly: the agents become a

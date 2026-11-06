@@ -57,6 +57,44 @@ test('a program can set the clipboard but never read it through OSC 52', async (
   await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe('via-osc');
 });
 
+// Local: a finger can't select xterm's text, so holding it opens the screen as
+// selectable text, with Copy all. A drag must still scroll, not open it.
+test.describe('on a phone', () => {
+  test.use({ viewport: { width: 360, height: 780 }, isMobile: true, hasTouch: true, deviceScaleFactor: 3 });
+
+  const press = async (page, points) => {
+    const cdp = await page.context().newCDPSession(page);
+    for (const [type, p, wait = 0] of points) {
+      await cdp.send('Input.dispatchTouchEvent', { type, touchPoints: p ? [p] : [] });
+      if (wait) await page.waitForTimeout(wait);
+    }
+  };
+
+  test('holding the terminal opens its text to select and copy', async ({ page, host }) => {
+    await pair(page, host);
+    await page.evaluate(() => navigator.clipboard.writeText('antes'));
+    // Longer than the phone's ~45 columns: it must copy as one line.
+    const long = `copia-${'0'.repeat(58)}42-celular`;
+    await typeInTerminal(page, "printf 'copia-%060d-celular\\n' $((6*7))\n");
+    await expect.poll(() => host.capture(host.windows()[0].id)).toContain(long);
+    const box = await page.locator('#terminal').boundingBox();
+    const at = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+    const sheet = page.locator('#copy-sheet');
+
+    // Drag, then rest the finger: that is a scroll, not a hold.
+    await press(page, [['touchStart', at], ['touchMove', { ...at, y: at.y + 120 }, 700], ['touchEnd', null]]);
+    await expect(sheet).toBeHidden();
+
+    await press(page, [['touchStart', at, 700], ['touchEnd', null]]);
+    await expect(sheet).toBeVisible();
+    await expect(sheet.locator('pre')).toContainText(long);
+    expect(await sheet.locator('pre').evaluate((e) => getComputedStyle(e).webkitUserSelect)).toBe('text');
+    await sheet.getByRole('button', { name: 'Copy all' }).click();
+    await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toContain(long);
+    await expect(sheet).toBeHidden();
+  });
+});
+
 // Ctrl+V is paste, as in every desktop terminal. xterm.js would send it as the
 // ^V byte instead, and Claude Code reads ^V as "paste an image from the host".
 test('Ctrl+V pastes the clipboard text into the program', async ({ page, host }) => {

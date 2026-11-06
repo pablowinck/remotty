@@ -97,11 +97,8 @@ export function createTerminal({ onStatus, isShortcut = () => false }) {
 
   function remember() {
     if (!windowId) return;
-    const lines = [];
-    const buf = term.buffer.active;
-    for (let y = 0; y < term.rows; y++) lines.push(buf.getLine(buf.viewportY + y)?.translateToString(true) ?? '');
     screens.delete(windowId); // re-insert: the Map keeps the most recent last
-    screens.set(windowId, lines.join('\r\n'));
+    screens.set(windowId, screenLines(term).join('\r\n'));
     if (screens.size > SCREENS_MAX) screens.delete(screens.keys().next().value);
   }
 
@@ -176,7 +173,9 @@ export function createTerminal({ onStatus, isShortcut = () => false }) {
   new ResizeObserver(() => fit.fit()).observe(document.getElementById('stage'));
 
   wireKeyBar({ send, toggleCtrl: () => setCtrl(!ctrlArmed), focus: () => byTouch() || term.focus(), onStatus });
-  wireTouchScroll(document.getElementById('terminal'), term);
+  const screen = document.getElementById('terminal');
+  wireTouchHold(screen, wireCopySheet(term, onStatus));
+  wireTouchScroll(screen, term, () => document.getElementById('copy-sheet').open);
   wireWheel(term);
   wireUploads({ send, paste: (text) => term.paste(text), onStatus });
 
@@ -306,13 +305,74 @@ function wireWheel(term) {
   });
 }
 
-function wireTouchScroll(el, term) {
+// The rows on screen as text, trailing blanks trimmed.
+function screenLines(term) {
+  const buf = term.buffer.active;
+  return Array.from({ length: term.rows }, (_, y) => buf.getLine(buf.viewportY + y)?.translateToString(true) ?? '');
+}
+
+// The screen as copied text: a row wrapped only for width joins the next one,
+// so a long URL or command copies whole on a narrow phone.
+function screenText(term) {
+  const buf = term.buffer.active;
+  let text = '';
+  for (let y = 0; y < term.rows; y++) {
+    const joined = y < term.rows - 1 && buf.getLine(buf.viewportY + y + 1)?.isWrapped;
+    text += (buf.getLine(buf.viewportY + y)?.translateToString(!joined) ?? '') + (joined ? '' : '\n');
+  }
+  return text.trimEnd();
+}
+
+// Local: xterm's text can't be selected by touch (user-select: none, a drag
+// scrolls, and tmux redraws it under the finger), so a hold opens a frozen copy
+// of the screen that the phone selects and copies natively.
+function wireCopySheet(term, onStatus) {
+  const sheet = document.getElementById('copy-sheet');
+  const pre = sheet.querySelector('pre');
+  sheet.addEventListener('click', async (e) => {
+    const action = e.target.closest('button')?.value;
+    if (action === 'close') return sheet.close();
+    if (action !== 'all') return;
+    try {
+      await navigator.clipboard.writeText(pre.textContent);
+      sheet.close();
+    } catch {
+      onStatus('Clipboard needs HTTPS and permission');
+    }
+  });
+  return () => {
+    pre.textContent = screenText(term); // set by programs: text only
+    sheet.showModal();
+  };
+}
+
+// A finger held still. Less travel than a row, so a drag scrolls first.
+const HOLD_MS = 500;
+const HOLD_PX = 10;
+function wireTouchHold(el, onHold) {
+  let timer = 0;
+  let start = null;
+  const cancel = () => { clearTimeout(timer); start = null; };
+  el.addEventListener('touchstart', (e) => {
+    cancel();
+    if (e.touches.length !== 1) return;
+    start = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    timer = setTimeout(() => { start = null; onHold(); }, HOLD_MS);
+  }, { passive: true });
+  el.addEventListener('touchmove', (e) => {
+    if (start && Math.hypot(e.touches[0].clientX - start.x, e.touches[0].clientY - start.y) > HOLD_PX) cancel();
+  }, { passive: true });
+  el.addEventListener('touchend', cancel);
+  el.addEventListener('touchcancel', cancel);
+}
+
+function wireTouchScroll(el, term, paused) {
   let lastY = null;
   el.addEventListener('touchstart', (e) => {
     lastY = e.touches.length === 1 ? e.touches[0].clientY : null;
   }, { passive: true });
   el.addEventListener('touchmove', (e) => {
-    if (lastY === null || e.touches.length !== 1) return;
+    if (lastY === null || e.touches.length !== 1 || paused()) return; // the finger that opened the copy sheet
     e.preventDefault(); // keep the page from bouncing instead
     const y = e.touches[0].clientY;
     const target = term.element.querySelector('.xterm-screen');

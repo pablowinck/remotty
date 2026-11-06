@@ -203,6 +203,16 @@ kbd {
 #hold-menu .danger { color: var(--bell); }
 #undo-close { position: fixed; left: 50%; bottom: 3.4rem; transform: translateX(-50%); z-index: 2; min-height: 2.5rem; padding: .4rem 1.1rem; background: var(--accent); color: #000; font-weight: 600; }
 
+/* Local: the copy sheet, opened by holding the terminal. Flex only when open:
+   on the dialog itself it would beat the browser's display: none. */
+#copy-sheet { width: calc(100% - 1rem); max-width: 60rem; height: calc(100% - 1rem); padding: .5rem; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--text); }
+#copy-sheet[open] { display: flex; flex-direction: column; gap: .5rem; }
+#copy-sheet::backdrop { background: rgb(0 0 0 / .5); }
+#copy-sheet .copy-actions { display: flex; align-items: center; gap: .4rem; }
+#copy-sheet .copy-hint { flex: 1; margin: 0; color: var(--muted); font-size: .85rem; }
+#copy-sheet button { min-height: 2.5rem; }
+#copy-sheet pre { flex: 1; margin: 0; overflow: auto; font: 13px/1.25 "JetBrains Mono", ui-monospace, Menlo, monospace; user-select: text; -webkit-user-select: text; -webkit-touch-callout: default; }
+
 /* Files dragged over the page: say where they go. */
 body.dropping #stage { outline: 2px dashed var(--accent); outline-offset: -4px; }
 body.dropping #stage::after { content: "Drop to attach"; position: absolute; inset: auto 0 1rem; text-align: center; color: var(--accent); pointer-events: none; }

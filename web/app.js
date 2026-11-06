@@ -71,6 +71,11 @@ async function main() {
     focusTerminal: () => terminal.focus(),
     holdKeys: () => terminal.hold(),
     onOpen: () => drawer.close(),
+    // The host answers again: drop the poll's error, and the terminal need not wait out its backoff.
+    onReachable: () => {
+      setStatus('');
+      terminal.retry();
+    },
   });
   // On a narrow screen the finder lives in the drawer: open it first.
   const findAgent = () => {

@@ -7,6 +7,9 @@ import { wireUploads } from './uploads.js';
 // Retry fast after a blip, then back off so a host that is down (or a tablet
 // that lost signal) is not hammered. Reset on every successful connection.
 const RETRY_MS = [500, 1000, 2000, 4000, 8000];
+// A handshake that hangs (a phone back from sleep, a changed network) can take
+// minutes to fail by itself; give up on it and retry instead.
+const CONNECT_MS = 5000;
 
 export function createTerminal({ onStatus, isShortcut = () => false }) {
   const term = new Terminal({
@@ -27,6 +30,7 @@ export function createTerminal({ onStatus, isShortcut = () => false }) {
   let socket = null;
   let windowId = null;
   let failures = 0;
+  let retryTimer = 0;
   let ctrlArmed = false;
   // Keys typed while the socket is still connecting (a slow tailnet handshake,
   // a reconnect) wait here and go out in order once it opens.
@@ -84,6 +88,7 @@ export function createTerminal({ onStatus, isShortcut = () => false }) {
 
   function connect(id) {
     if (id !== windowId) remember();
+    clearTimeout(retryTimer); // a pending retry would close the socket opened now
     socket?.close();
     if (id !== windowId && !held) pending = []; // keys typed for another window stay there
     held = false;
@@ -99,7 +104,9 @@ export function createTerminal({ onStatus, isShortcut = () => false }) {
     const size = `cols=${term.cols}&rows=${term.rows}`;
     const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/api/windows/${encodeURIComponent(id)}/tty?${size}`);
     ws.binaryType = 'arraybuffer';
+    const giveUp = setTimeout(() => ws.readyState === WebSocket.CONNECTING && ws.close(), CONNECT_MS);
     ws.onopen = () => {
+      clearTimeout(giveUp);
       failures = 0;
       onStatus('');
       fit.fit();
@@ -112,12 +119,20 @@ export function createTerminal({ onStatus, isShortcut = () => false }) {
     };
     ws.onmessage = (e) => term.write(new Uint8Array(e.data));
     ws.onclose = () => {
+      clearTimeout(giveUp);
       if (socket !== ws || windowId !== id) return; // superseded by another window
       onStatus('Reconnecting…');
       const wait = RETRY_MS[Math.min(failures++, RETRY_MS.length - 1)];
-      setTimeout(() => windowId === id && connect(id), wait);
+      retryTimer = setTimeout(() => windowId === id && connect(id), wait);
     };
     socket = ws;
+  }
+
+  // The host answers again: try now, not after the backoff (up to 8 s).
+  function retry() {
+    if (!windowId || socket?.readyState <= WebSocket.OPEN) return; // connecting (CONNECT_MS covers a hang) or open
+    failures = 0;
+    connect(windowId);
   }
 
   function setCtrl(on) {
@@ -144,7 +159,7 @@ export function createTerminal({ onStatus, isShortcut = () => false }) {
   wireTouchScroll(document.getElementById('terminal'), term);
   wireUploads({ send, onStatus });
 
-  return { connect, hold, focus: () => term.focus(), get windowId() { return windowId; } };
+  return { connect, hold, retry, focus: () => term.focus(), get windowId() { return windowId; } };
 }
 
 // tmux 3.5+ asks the terminal on attach: device attributes (DA1, DA2) and the

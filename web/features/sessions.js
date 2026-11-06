@@ -65,7 +65,7 @@ function saveCollapsed(set) {
 
 const stateOf = (w) => (w.bell ? 'bell' : w.silence ? 'waiting' : w.activity ? 'activity' : 'idle');
 
-export function createSessions({ onSelect, onError, onStatus = () => {}, focusTerminal, holdKeys = () => {}, onOpen = () => {} }) {
+export function createSessions({ onSelect, onError, onStatus = () => {}, focusTerminal, holdKeys = () => {}, onOpen = () => {}, onReachable = () => {} }) {
   const list = document.getElementById('tab-list');
   const find = document.getElementById('find');
   const menu = document.getElementById('tab-menu');
@@ -75,14 +75,18 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
   let current = null;
   let highlighted = 0; // index into the visible rows while the field has focus
   let timer = null;
+  let unreachable = false; // the last poll failed, and its error is on screen
 
   async function refresh() {
     try {
       [windows, folders] = await Promise.all([api('GET', '/api/windows'), api('GET', '/api/folders')]);
     } catch (e) {
+      unreachable = true;
       onError(e);
       return;
     }
+    if (unreachable) onReachable();
+    unreachable = false;
     render();
     // The open window was closed elsewhere (ssh, an agent exiting): follow tmux
     // to a window that still exists instead of retrying a dead one forever.

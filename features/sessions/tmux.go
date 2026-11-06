@@ -38,6 +38,7 @@ var (
 	ErrBadWindowID  = errors.New("invalid window id")
 	ErrBadName      = errors.New("invalid window name")
 	ErrNoWindow     = errors.New("no such window")
+	ErrBadKey       = errors.New("invalid key")
 )
 
 // The folder goes last: tmux escapes a tab in window_name but not in an option,
@@ -110,11 +111,17 @@ func parseWindows(out string) []Window {
 }
 
 // Create opens a new window running the user's shell and returns its id.
-func (t Tmux) Create(name string) (string, error) {
+func (t Tmux) Create(name string) (string, error) { return t.CreateAt(name, "") }
+
+// CreateAt is Create starting in directory dir; "" is tmux's default.
+func (t Tmux) CreateAt(name, dir string) (string, error) {
 	if err := validName(name); err != nil {
 		return "", err
 	}
 	args := []string{"new-window", "-d", "-P", "-F", "#{window_id}", "-t", "=" + t.Session + ":"}
+	if dir != "" {
+		args = append(args, "-c", dir)
+	}
 	if name != "" {
 		args = append(args, "-n", name)
 	}

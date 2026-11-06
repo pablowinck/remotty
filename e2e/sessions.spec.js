@@ -1,4 +1,5 @@
-import { test, expect, pair, typeInTerminal } from './fixtures.js';
+import { execFileSync } from 'node:child_process';
+import { test, expect, pair, typeInTerminal, BIN } from './fixtures.js';
 
 test('creates, switches, renames and closes agent tabs', async ({ page, host }) => {
   await pair(page, host);
@@ -293,4 +294,29 @@ test('a folder goes inside another by dragging or by its ⋯ Move to, and carrie
   await page.getByRole('menuitem', { name: 'Top level' }).click();
   await expect.poll(folderList).toBe('lpr\njobs\njobs\x1fmovvia\n');
   await expect(seoRow).toBeVisible();
+});
+
+// remotty mcp drives the same tmux the page shows: an agent an orchestrator
+// creates in a nested folder appears there, running what it was told to run.
+test('an agent created over MCP shows up in its folder, running its command', async ({ page, host }) => {
+  await pair(page, host);
+  const call = (id, name, args) => JSON.stringify({ jsonrpc: '2.0', id, method: 'tools/call', params: { name, arguments: args } });
+  const out = execFileSync(BIN, ['mcp', '-tmux-socket', host.socket], {
+    env: host.env, encoding: 'utf8',
+    input: [
+      call(1, 'create_folder', { name: 'jobs' }),
+      call(2, 'create_folder', { name: 'seo', parent: 'jobs' }),
+      call(3, 'create_agent', { name: 'redator', folder: 'jobs/seo', command: 'echo mcp-$((6*7))' }),
+    ].join('\n') + '\n',
+  });
+  const replies = out.trim().split('\n').map((l) => JSON.parse(l));
+  expect(replies.map((r) => r.result.isError)).toEqual([false, false, false]);
+  const { id } = JSON.parse(replies[2].result.content[0].text);
+
+  await expect(page.locator('#tab-list li.folder .name')).toHaveText(['jobs', 'seo']);
+  const redator = page.locator('#tab-list li[data-id]', { hasText: 'redator' });
+  await expect(redator).toHaveClass(/in-folder/);
+  await expect.poll(() => host.capture(id)).toContain('mcp-42');
+  await redator.click();
+  await expect(page.locator('#terminal .xterm-rows')).toContainText('mcp-42');
 });

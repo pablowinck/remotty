@@ -23,6 +23,7 @@ const usage = `remotty — your tmux windows in a browser tab.
   remotty pair [--json]      print a one-time pairing code (valid 5 min)
   remotty devices            list paired devices (expiry moves 30 days ahead on each use)
   remotty revoke ID|--all    unpair a device, closing its open terminals
+  remotty mcp [flags]        MCP server on stdio: lets an agent drive the other windows (claude mcp add remotty -- remotty mcp)
 `
 
 func main() {
@@ -53,6 +54,8 @@ func run(args []string, out io.Writer) error {
 		return devices(store, out)
 	case "revoke":
 		return revoke(args[1:], store, out)
+	case "mcp":
+		return runMCP(args[1:])
 	case "-h", "--help", "help":
 		fmt.Fprint(out, usage)
 		return nil

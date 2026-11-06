@@ -130,6 +130,34 @@ remotty revoke ID   # unpair; its open terminals close within a second
   zooms the page in.
 - Install it as an app from the browser menu for full screen.
 
+### Let one agent drive the others (MCP)
+
+`remotty mcp` is an MCP server on stdio. Plug it into Claude Code and one agent
+can run the rest: open agents in folders, prompt them, read their screens and
+answer their menus (Claude Code's multiple-choice questions included).
+
+```sh
+claude mcp add -s user remotty -- remotty mcp
+```
+
+It talks to tmux directly, as you, so it needs no pairing and no running server;
+the page shows what it does within a couple of seconds. Pass the same
+`-tmux-socket` / `-session` as `serve` if you changed them. Tools:
+
+- `list_agents`: every window (id like `@3`, name, folder, idle or ringing) and
+  every folder; the agent's own window is marked `self`.
+- `create_agent` (name, optional folder, dir and command, e.g. `claude`),
+  `rename_agent`, `close_agent`, `duplicate_agent`, `move_agent`.
+- `create_folder` (optionally inside a parent), `rename_folder`, `delete_folder`,
+  `nest_folder`. A nested folder is written `jobs/seo`.
+- `send_text`: types a prompt into a window as a paste, then Enter.
+- `send_keys`: presses keys (`Enter`, `Escape`, `Up`, `Down`, `Tab`, `C-c`, a
+  digit...), to pick an option in a menu.
+- `read_screen`: what a window shows, plus scrollback on request.
+
+Whatever runs in an agent can type into every other one, so add it only to
+agents you would let use your keyboard.
+
 ## Security model
 
 The host usually holds credentials worth more than the terminal itself, so access
@@ -170,6 +198,7 @@ features/access/    pairing, device cookies, the security guard
 features/sessions/  tmux windows
 features/terminal/  WebSocket <-> PTY bridge
 features/uploads/   files from the browser, saved on the host
+features/mcp/       `remotty mcp`: the same windows as tools for an agent
 web/                the UI (plain ES modules, embedded into the binary)
 web/features/       UI code for the same three features
 e2e/                browser tests

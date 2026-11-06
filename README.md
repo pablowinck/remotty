@@ -46,6 +46,13 @@ and tmux with it. Start `wsl.exe -d <distro> --exec dbus-launch true` from the
 Windows Startup folder or Task Scheduler to keep it alive. The first `tailscale serve` asks you to enable Serve for your tailnet in the
 admin console; that is a one-time click.
 
+On the Windows PC itself, open **http://localhost:7681**, not the `.ts.net`
+address. With Tailscale running inside WSL, only WSL is on the tailnet: Windows
+cannot resolve `*.ts.net` (the browser says `DNS_PROBE_FINISHED_NXDOMAIN`), while
+WSL forwards localhost to Windows. localhost pairs on its own, separately from the
+tailnet address, so run `remotty pair` and type the code once. Then install it as
+an app (below) from that tab.
+
 Pair a device:
 
 ```sh
@@ -125,14 +132,26 @@ remotty revoke ID   # unpair; its open terminals close within a second
   Code's copy-on-select, vim) work too: remotty sets tmux `set-clipboard on`.
   The page only ever writes the clipboard; an OSC 52 read request is ignored.
 - The bottom bar has the keys a tablet keyboard lacks: Esc, Tab, Enter, a sticky Ctrl,
-  arrows, ^C and paste.
-- On a phone held upright the page fits the screen exactly: the agents become a
-  strip on top (the current one is underlined), `+` creates an agent and the
-  magnifier finds one (both open the finder over the whole row), and the keys sit in two rows with no sideways scrolling.
+  arrows, ^C and paste. **Settings** (under the agent list) picks which of them show
+  and in what order (drag ⠿, or Alt+↑/↓ on a key). It is per device: a touch screen
+  starts with every key, a mouse and keyboard with none. 🎤 and 📎 always show.
+- On a phone, or a tablet held upright, the terminal takes the whole width and the
+  page fits the screen exactly. The top bar names the open agent, with its dot;
+  tap it for the agent list, the same as on a desktop, as a drawer: search,
+  folders, `⋯`, Restore and Settings. Picking an agent, tapping outside or Esc
+  closes it. `+` opens it on the finder, which creates. The keys sit in two rows
+  with no sideways scrolling.
   When the soft keyboard opens, the terminal shrinks to what is left, on iOS too
   (where Safari covers the page instead of resizing it). Tapping a field never
   zooms the page in.
-- Install it as an app from the browser menu for full screen.
+- Install it as an app for a window of its own, in the taskbar and Alt+Tab: in
+  Edge, `⋯` › Apps › Install this site as an app; in Chrome, `⋮` › Cast, save and
+  share › Install page as app. The app draws its own title bar, as desktop apps
+  do: the agent list reaches the top of the window, next to the window buttons.
+  An app installed before this keeps the browser's bar until the browser
+  refreshes its copy of the manifest; to get it now, uninstall the app (leave
+  "also clear data" unchecked, or it has to pair again) and install it again
+  from a tab. If the bar still shows, the `⌄` next to its `⋯` hides it.
 
 ### Let one agent drive the others (MCP)
 

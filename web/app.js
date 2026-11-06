@@ -2,7 +2,8 @@
 import { api, Unauthorized } from './features/api.js';
 import { showPairing } from './features/access.js';
 import { createSessions } from './features/sessions.js';
-import { wireSidebar } from './features/sidebar.js';
+import { wireDrawer, wireSidebar } from './features/sidebar.js';
+import { wireSettings } from './features/settings.js';
 import { createTerminal, keyLabel, shortcutOf } from './features/terminal.js';
 
 const status = document.getElementById('status');
@@ -43,11 +44,12 @@ async function main() {
   document.getElementById('app').hidden = false;
   followVisualViewport();
   wireSidebar();
+  const drawer = wireDrawer();
   document.querySelectorAll('#app kbd').forEach((k) => (k.textContent = keyLabel(k.textContent)));
   // App shortcuts. The terminal is told which keys are ours so it never sends
   // them to the shell (see attachCustomKeyEventHandler in terminal.js).
   const shortcuts = {
-    'Ctrl+Shift+K': () => sessions.focusFind(),
+    'Ctrl+Shift+K': () => findAgent(),
     'Alt+ArrowDown': () => sessions.step(1),
     'Alt+ArrowUp': () => sessions.step(-1),
     'Alt+Shift+ArrowDown': () => sessions.shift(1),
@@ -68,6 +70,18 @@ async function main() {
     onStatus: setStatus,
     focusTerminal: () => terminal.focus(),
     holdKeys: () => terminal.hold(),
+    onOpen: () => drawer.close(),
+  });
+  // On a narrow screen the finder lives in the drawer: open it first.
+  const findAgent = () => {
+    drawer.open();
+    sessions.focusFind();
+  };
+  document.getElementById('top-new').addEventListener('click', findAgent);
+  const settings = wireSettings({ onClose: () => terminal.focus() });
+  document.getElementById('open-settings').addEventListener('click', () => {
+    drawer.close();
+    settings.open();
   });
   document.addEventListener('keydown', (e) => {
     const action = shortcuts[shortcutOf(e)];

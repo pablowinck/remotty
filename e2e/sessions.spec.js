@@ -32,14 +32,17 @@ test('creates, switches, renames and closes agent tabs', async ({ page, host }) 
   expect(host.windows().map((w) => w.name)).not.toContain('testador');
 });
 
-test('upright, the tabs move to a top strip and the terminal takes the full width', async ({ page, host }) => {
+test('upright, the agent list becomes a drawer and the terminal takes the full width', async ({ page, host }) => {
   await pair(page, host);
   const width = () => page.locator('#stage').evaluate((e) => e.getBoundingClientRect().width);
   // Anchor: in landscape the sidebar takes a slice of the width.
   expect(await width()).toBeLessThan(page.viewportSize().width - 100);
+  await expect(page.locator('#menu')).toBeHidden();
   await page.setViewportSize({ width: 800, height: 1280 });
   await expect.poll(width).toBeGreaterThan(780);
-  expect((await page.locator('#tabs').boundingBox()).height).toBeLessThan(120);
+  await expect(page.locator('#tabs')).not.toBeInViewport();
+  await page.getByRole('button', { name: 'Agents' }).click();
+  await expect(page.locator('#tabs')).toBeInViewport({ ratio: 1 });
 });
 
 test('windows created over ssh or mosh show up without reloading', async ({ page, host }) => {
@@ -319,4 +322,19 @@ test('an agent created over MCP shows up in its folder, running its command', as
   await expect.poll(() => host.capture(id)).toContain('mcp-42');
   await redator.click();
   await expect(page.locator('#terminal .xterm-rows')).toContainText('mcp-42');
+});
+
+// A touch screen has no hover: every row's ⋯ must show, not only on a mouse-over.
+// With a mouse they stay out of the way until the row is pointed at.
+test('on a touch screen every agent shows its ⋯; with a mouse only the row pointed at', async ({ browser, host }) => {
+  host.tmux('new-window', '-d', '-t', '=main:', '-n', 'outro');
+  const opacity = (page) => page.locator('#tab-list li:not([aria-current="true"]) .more').evaluate((e) => getComputedStyle(e).opacity);
+  for (const [touch, want] of [[true, '1'], [false, '0']]) {
+    const context = await browser.newContext({ hasTouch: touch, isMobile: touch, viewport: { width: 1280, height: 800 } });
+    const page = await context.newPage();
+    await pair(page, host);
+    await expect(page.locator('#tab-list li[data-id]')).toHaveCount(2); // anchor: there is a row that is not open
+    expect(await opacity(page), touch ? 'touch' : 'mouse').toBe(want);
+    await context.close();
+  }
 });

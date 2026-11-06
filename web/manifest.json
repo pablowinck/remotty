@@ -3,7 +3,8 @@
   "short_name": "remotty",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#101418",
-  "theme_color": "#101418",
+  "display_override": ["window-controls-overlay"],
+  "background_color": "#181818",
+  "theme_color": "#181818",
   "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" }]
 }

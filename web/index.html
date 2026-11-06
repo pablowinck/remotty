@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content, viewport-fit=cover">
-  <meta name="theme-color" content="#101418">
+  <meta name="theme-color" content="#181818">
   <title>remotty</title>
   <link rel="manifest" href="/manifest.json">
   <link rel="icon" href="/icon.svg">
@@ -24,7 +24,17 @@
   </main>
 
   <div id="app" hidden>
+    <!-- Narrow screens only: where you are, and the way into the agent list. -->
+    <header id="topbar">
+      <button id="menu" type="button" aria-label="Agents" aria-controls="tabs" aria-expanded="false">
+        <span class="dot" aria-hidden="true"></span><span id="top-name"></span>
+      </button>
+      <button id="top-new" type="button" aria-label="New agent" class="icon-plus"></button>
+    </header>
+    <div id="scrim" aria-hidden="true"></div>
     <nav id="tabs" aria-label="Agents">
+      <div id="tabs-head">remotty</div>
+      <button id="new-tab" type="button" class="row-button icon-plus">New agent</button>
       <div id="find-box">
         <input id="find" type="search" placeholder="Find or create" aria-label="Find or create an agent" aria-keyshortcuts="Control+Shift+K"
                aria-controls="tab-list" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="go">
@@ -37,9 +47,9 @@
         <li><kbd>Alt ↑↓</kbd> next</li>
         <li><kbd>Alt ⇧ ↑↓</kbd> or drag to reorder</li>
       </ul>
-      <div id="tab-actions">
-        <button id="new-tab" type="button" aria-label="New agent">+</button>
-        <button id="restore" type="button" aria-label="Restore" title="Reopen Claude Code conversations that stopped">Restore</button>
+      <div id="tabs-foot">
+        <button id="restore" type="button" class="row-button icon-restore" aria-label="Restore" title="Reopen Claude Code conversations that stopped">Restore</button>
+        <button id="open-settings" type="button" class="row-button icon-settings">Settings</button>
       </div>
       <div id="tabs-resize" role="separator" tabindex="0" aria-orientation="vertical" aria-controls="tabs"
            aria-label="Resize the agent list" title="Drag to resize, double-click to fit the names"></div>
@@ -75,6 +85,18 @@
       </form>
     </dialog>
     <p id="status" role="status"></p>
+    <dialog id="settings" aria-labelledby="settings-title">
+      <div class="settings-head">
+        <h2 id="settings-title">Settings</h2>
+        <button id="settings-done" type="button">Done</button>
+      </div>
+      <section aria-labelledby="keys-title">
+        <h3 id="keys-title">Key bar</h3>
+        <p class="hint">The keys under the terminal, on this device. Drag <span aria-hidden="true">⠿</span> or press Alt ↑↓ on a key to reorder. The microphone and attach are always there.</p>
+        <ul id="key-settings"></ul>
+        <button id="keys-reset" type="button">Reset to defaults</button>
+      </section>
+    </dialog>
   </div>
 </body>
 </html>

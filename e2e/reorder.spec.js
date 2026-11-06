@@ -65,22 +65,23 @@ test.describe('on a phone', () => {
     }
   };
 
-  test('holding a tab, then sliding it, reorders; a plain swipe does not', async ({ page, host }) => {
+  test('in the drawer, holding a tab, then sliding it, reorders; a plain swipe does not', async ({ page, host }) => {
     setup(host);
     await pair(page, host);
+    await page.getByRole('button', { name: 'Agents' }).tap();
+    await expect(page.locator('#tabs')).toBeInViewport({ ratio: 1 });
     const a = await row(page, 'um').boundingBox();
     const c = await row(page, 'tres').boundingBox();
-    const y = a.y + a.height / 2;
+    const x = a.x + 40;
 
-    // A quick swipe along the strip is a scroll, never a drag.
-    await touch(page, [['touchStart', { x: a.x + 10, y }], ['touchMove', { x: c.x + c.width - 5, y }], ['touchEnd', null]]);
+    // A quick swipe down the list is a scroll, never a drag.
+    await touch(page, [['touchStart', { x, y: a.y + 10 }], ['touchMove', { x, y: c.y + c.height - 5 }], ['touchEnd', null]]);
     await page.waitForTimeout(300);
     expect(names(host)).toEqual(['um', 'dois', 'tres']);
 
-    // Hold still, then slide to the right half of "tres", as far as it is on screen.
-    const to = Math.min(c.x + c.width * 0.8, page.viewportSize().width - 4);
-    const steps = [...Array(8)].map((_, i) => ['touchMove', { x: a.x + 10 + ((to - a.x - 10) * (i + 1)) / 8, y }, 20]);
-    await touch(page, [['touchStart', { x: a.x + 10, y }, 500], ...steps, ['touchEnd', null]]);
+    // Hold still, then slide to the lower half of "tres".
+    const steps = [...Array(8)].map((_, i) => ['touchMove', { x, y: a.y + 10 + ((c.y + c.height * 0.8 - a.y - 10) * (i + 1)) / 8 }, 20]);
+    await touch(page, [['touchStart', { x, y: a.y + 10 }, 500], ...steps, ['touchEnd', null]]);
     await expect.poll(() => names(host)).toEqual(['dois', 'tres', 'um']);
   });
 });

@@ -65,7 +65,7 @@ function saveCollapsed(set) {
 
 const stateOf = (w) => (w.bell ? 'bell' : w.silence ? 'waiting' : w.activity ? 'activity' : 'idle');
 
-export function createSessions({ onSelect, onError, onStatus = () => {}, focusTerminal, holdKeys = () => {} }) {
+export function createSessions({ onSelect, onError, onStatus = () => {}, focusTerminal, holdKeys = () => {}, onOpen = () => {} }) {
   const list = document.getElementById('tab-list');
   const find = document.getElementById('find');
   const menu = document.getElementById('tab-menu');
@@ -145,6 +145,17 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
       return li;
     }));
     list.querySelector('.highlighted')?.scrollIntoView({ block: 'nearest' });
+    showCurrent();
+  }
+
+  // The top bar of a narrow screen names the open agent, with its state dot,
+  // so you know where you are without opening the list.
+  function showCurrent() {
+    const w = windows.find((x) => x.id === current);
+    const button = document.getElementById('menu');
+    document.getElementById('top-name').textContent = w ? w.name : 'Agents'; // textContent: set by programs in the terminal
+    if (w) button.dataset.state = stateOf(w);
+    else delete button.dataset.state;
   }
 
   function rowElement(row) {
@@ -324,7 +335,6 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
   let dragged = false;
   const DRAG_PX = 8;
   const HOLD_MS = 350;
-  const horizontal = () => getComputedStyle(list).display === 'flex';
 
   list.addEventListener('pointerdown', (e) => {
     const li = e.target.closest('li[data-id], li.folder');
@@ -377,7 +387,7 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
     if (!over || (isFolder && within(over.dataset.folder, dragging.dataset.folder))) return null;
     if (!isFolder && over.classList.contains('folder')) return { over, into: true };
     const r = over.getBoundingClientRect();
-    const [at, size] = horizontal() ? [e.clientX - r.left, r.width] : [e.clientY - r.top, r.height];
+    const [at, size] = [e.clientY - r.top, r.height];
     if (isFolder && at > size / 4 && at < size * 3 / 4) return { over, into: true };
     return { over, after: at > size / 2 };
   }
@@ -489,14 +499,9 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
     find.value = '';
     highlighted = 0;
     select(id);
+    onOpen();
     focusTerminal();
-    revealCurrent();
-  }
-
-  // On a phone the tabs are a strip wider than the screen: bring the chosen one
-  // in. Only once the finder has closed, because the strip is hidden while it is open.
-  function revealCurrent() {
-    list.querySelector('[aria-current="true"]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    list.querySelector('[aria-current="true"]')?.scrollIntoView({ block: 'nearest' });
   }
 
   const create = (name, folder = '') => openNew('/api/windows', { name }, folder);
@@ -561,14 +566,15 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
     render();
   });
   find.addEventListener('keydown', onFindKey);
-  // A tap on a result would first blur the finder, which hides the results on a
-  // phone before the click lands. Keeping focus on pointerdown lets the tap through.
+  // A tap on a result would first blur the finder, which redraws the list
+  // before the click lands. Keeping focus on pointerdown lets the tap through.
   list.addEventListener('pointerdown', (e) => {
     if (document.activeElement === find) e.preventDefault();
   });
   find.addEventListener('blur', () => setTimeout(render)); // drop the highlight
-  // Tapping "+" must not blur the finder on the way (the tap lands on the button,
-  // which would steal focus), so focus it after the button has taken the click.
+  // "New agent" opens the finder, which creates. It must not blur the finder on
+  // the way (the tap lands on the button, which would steal focus), so focus it
+  // after the button has taken the click.
   document.getElementById('new-tab').addEventListener('click', () => {
     find.focus();
     render();

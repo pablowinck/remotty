@@ -1,11 +1,16 @@
+/* Graphite, after the Codex desktop app: greys carry the layout, so the only
+   colours on screen are the agent states, and they stand out. */
 :root {
-  --bg: #101418;
-  --panel: #161c22;
-  --line: #26303a;
-  --text: #d7dde3;
-  --muted: #8593a0;
-  --accent: #f5a524;
+  --bg: #181818;
+  --panel: #1f1f1f;   /* the sidebar, one step above the terminal */
+  --raised: #2c2c2c;  /* the open agent, menus, keys */
+  --hover: #262626;
+  --line: #303030;
+  --text: #ececec;
+  --muted: #9b9b9b;
+  --focus: #ffffff;
   --bell: #ff5d5d;
+  --waiting: #f5a524;
   --activity: #4cc2ff;
   --tab-w: 16rem; /* room for a name, its Alt chip and the close button */
   color-scheme: dark;
@@ -28,24 +33,37 @@ html, body {
 button {
   font: inherit;
   color: inherit;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 6px;
+  background: var(--raised);
+  border: 0;
+  border-radius: 8px;
   padding: .45rem .7rem;
   touch-action: manipulation;
+  cursor: pointer;
 }
+button:hover:not(:disabled) { background: #363636; }
+button:disabled { opacity: .5; cursor: default; }
 
-button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+
+/* Icons are masks, so they take the colour of the text around them. */
+.icon-plus::before, .icon-restore::before, .icon-settings::before, #menu::before, #tab-list li.folder::after {
+  content: ""; flex: none; width: 1.1rem; height: 1.1rem; background: currentColor;
+  -webkit-mask: var(--icon) no-repeat center / contain; mask: var(--icon) no-repeat center / contain;
+}
+.icon-plus { --icon: url(/plus.svg); }
+.icon-restore { --icon: url(/restore.svg); }
+.icon-settings { --icon: url(/settings.svg); }
 
 /* Pairing */
 #pair { display: grid; place-items: center; min-height: 100%; padding: 1rem; }
-.card { display: grid; gap: .8rem; width: min(24rem, 100%); background: var(--panel); padding: 1.5rem; border-radius: 10px; }
+.card { display: grid; gap: .8rem; width: min(24rem, 100%); background: var(--panel); padding: 1.5rem; border-radius: 14px; border: 1px solid var(--line); }
 .card h1 { margin: 0; }
 .card label { display: grid; gap: .3rem; color: var(--muted); }
-.card input { font: 1.1rem ui-monospace, monospace; padding: .6rem; background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 6px; }
+.card input { font: 1.1rem ui-monospace, monospace; padding: .6rem; background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 8px; }
+#pair-form button[type="submit"] { background: var(--text); color: var(--bg); font-weight: 600; }
 .error { color: var(--bell); min-height: 1.4em; margin: 0; }
 
-/* App: tabs on the left, terminal filling the rest, key bar at the bottom. */
+/* App: agents on the left, terminal filling the rest, key bar at the bottom. */
 #app {
   display: grid;
   grid-template: "tabs stage" 1fr "tabs keys" auto / var(--tab-w) 1fr;
@@ -55,78 +73,93 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
      home indicator. They are 0 wherever the screen has no such edges. */
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
+#topbar, #scrim { display: none; }
 
-#tabs { grid-area: tabs; display: flex; flex-direction: column; border-right: 1px solid var(--line); min-height: 0; position: relative; }
+#tabs { grid-area: tabs; display: flex; flex-direction: column; background: var(--panel); border-right: 1px solid var(--line); min-height: 0; position: relative; padding: .4rem; gap: .15rem; }
+#tabs-head { font-weight: 600; font-size: 1.05rem; padding: .4rem .6rem .5rem; }
+/* Sidebar rows that are actions, not agents: icon, label, no box. */
+.row-button { display: flex; align-items: center; gap: .6rem; width: 100%; text-align: left; background: none; padding: .5rem .6rem; color: var(--text); }
+.row-button:hover:not(:disabled) { background: var(--hover); }
+#tabs-foot { display: flex; gap: .2rem; border-top: 1px solid var(--line); padding-top: .3rem; margin-top: .2rem; }
+#tabs-foot .row-button { color: var(--muted); width: auto; flex: 1; font-size: .9rem; }
+#tabs-foot .row-button:hover { color: var(--text); }
+
 /* Wider than the 1px line it sits on, so it is easy to grab. */
 #tabs-resize { position: absolute; top: 0; bottom: 0; right: -4px; width: 8px; z-index: 1; cursor: col-resize; touch-action: none; }
-#tabs-resize:hover, #tabs-resize:focus-visible { background: linear-gradient(var(--accent), var(--accent)) center / 2px 100% no-repeat; outline: none; }
-#tab-list { list-style: none; margin: 0; padding: .3rem; overflow-y: auto; flex: 1; }
-#tab-list li { display: flex; align-items: center; gap: .35rem; padding: .55rem .4rem .55rem .6rem; border-radius: 6px; cursor: pointer; }
-#tab-list li[aria-current="true"] { background: var(--panel); box-shadow: inset 3px 0 var(--accent); }
+#tabs-resize:hover, #tabs-resize:focus-visible { background: linear-gradient(var(--muted), var(--muted)) center / 2px 100% no-repeat; outline: none; }
+
+#tab-list { list-style: none; margin: .2rem 0 0; padding: 0; overflow-y: auto; flex: 1; }
+#tab-list li { display: flex; align-items: center; gap: .4rem; padding: .5rem .4rem .5rem .6rem; border-radius: 8px; cursor: pointer; }
+#tab-list li:hover { background: var(--hover); }
+#tab-list li[aria-current="true"] { background: var(--raised); }
 #tab-list .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-#tab-list .index { color: var(--muted); font-variant-numeric: tabular-nums; }
-#tab-list .dot { width: .55rem; height: .55rem; border-radius: 50%; flex: none; }
-#tab-list [data-state="idle"] .dot { display: none; } /* no state, no reserved space */
-#tab-list [data-state="bell"] .dot { background: var(--bell); }
-#tab-list [data-state="waiting"] .dot { background: var(--accent); }
-#tab-list [data-state="activity"] .dot { background: var(--activity); }
-#tab-list .more { padding: 0 .4rem; border: 0; background: none; color: var(--muted); }
-#tab-list li.folder { color: var(--muted); font-size: .85rem; gap: .4rem; }
-#tab-list li.folder::before { content: "▾"; width: .8rem; }
+#tab-list .index { color: var(--muted); font-size: .8rem; font-variant-numeric: tabular-nums; min-width: 1ch; }
+.dot { width: .5rem; height: .5rem; border-radius: 50%; flex: none; }
+[data-state="idle"] > .dot, #menu:not([data-state]) .dot { display: none; } /* no state, no reserved space */
+[data-state="bell"] > .dot { background: var(--bell); }
+[data-state="waiting"] > .dot { background: var(--waiting); }
+[data-state="activity"] > .dot { background: var(--activity); }
+#tab-list .more { padding: 0 .4rem; background: none; color: var(--muted); }
+/* With a mouse, ⋯ shows on the row under it; a touch screen has no hover, so it always shows. */
+@media (hover: hover) {
+  #tab-list li:not(:hover):not([aria-current="true"]) .more:not(:focus-visible) { opacity: 0; }
+}
+#tab-list li.folder { color: var(--muted); font-size: .85rem; gap: .45rem; margin-top: .35rem; }
+#tab-list li.folder:hover { color: var(--text); }
+#tab-list li.folder::before { content: "▾"; width: .7rem; font-size: .75rem; order: -2; }
+#tab-list li.folder::after { --icon: url(/folder.svg); width: 1rem; height: 1rem; order: -1; }
 #tab-list li.folder[aria-expanded="false"]::before { content: "▸"; }
 #tab-list li.folder .count { font-size: .75rem; font-variant-numeric: tabular-nums; }
-#tab-list li.folder, #tab-list li.in-folder { padding-left: calc(.6rem + var(--depth, 0) * 1rem); } /* --depth: set per row in sessions.js */
-#tab-actions { display: flex; gap: .3rem; margin: .3rem; }
-#new-tab { flex: 1; font-size: 1.2rem; }
-#restore { flex: none; color: var(--muted); }
+#tab-list li.folder, #tab-list li.in-folder { padding-left: calc(.6rem + var(--depth, 0) * 1.4rem); } /* --depth: set per row in sessions.js */
 
 /* The Restore picker: a native modal dialog (Esc, focus trap, backdrop come with it). */
-#restore-dialog { width: min(34rem, calc(100% - 2rem)); max-height: min(36rem, calc(100dvh - 2rem)); padding: 0; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 10px 40px #000b; }
-#restore-dialog::backdrop { background: #0009; }
+#restore-dialog { width: min(34rem, calc(100% - 2rem)); max-height: min(36rem, calc(100dvh - 2rem)); padding: 0; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 20px 60px #000c; }
+#restore-dialog::backdrop { background: #000a; }
 #restore-dialog form { display: flex; flex-direction: column; max-height: inherit; }
-#restore-dialog h2 { margin: 0; padding: .9rem 1rem 0; font-size: 1.05rem; }
-#restore-dialog .hint { margin: .2rem 1rem .6rem; color: var(--muted); font-size: .8rem; }
-#restore-list { list-style: none; margin: 0; padding: 0 .4rem; overflow-y: auto; flex: 1; min-height: 0; overscroll-behavior: contain; }
-#restore-list label { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: .7rem; align-items: center; min-height: 2.75rem; padding: .5rem .6rem; border-radius: 6px; cursor: pointer; }
-#restore-list label:hover { background: var(--line); }
-#restore-list input { grid-row: span 2; width: 1.15rem; height: 1.15rem; margin: 0; accent-color: var(--accent); }
+#restore-dialog h2 { margin: 0; padding: 1rem 1.2rem 0; font-size: 1.15rem; }
+#restore-dialog .hint { margin: .2rem 1.2rem .6rem; color: var(--muted); font-size: .85rem; }
+#restore-list { list-style: none; margin: 0; padding: 0 .5rem; overflow-y: auto; flex: 1; min-height: 0; overscroll-behavior: contain; }
+#restore-list label { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: .7rem; align-items: center; min-height: 2.75rem; padding: .5rem .7rem; border-radius: 8px; cursor: pointer; }
+#restore-list label:hover { background: var(--hover); }
+#restore-list input { grid-row: span 2; width: 1.15rem; height: 1.15rem; margin: 0; accent-color: #3b82f6; }
 #restore-list .name, #restore-list .meta { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #restore-list .meta { color: var(--muted); font-size: .8rem; }
-#restore-dialog footer { display: flex; justify-content: flex-end; gap: .5rem; padding: .7rem 1rem; border-top: 1px solid var(--line); }
-#restore-go { background: var(--accent); color: #000; border-color: var(--accent); }
-#restore-go:disabled { background: var(--panel); color: var(--muted); border-color: var(--line); }
+#restore-dialog footer { display: flex; justify-content: flex-end; gap: .5rem; padding: .8rem 1.2rem; border-top: 1px solid var(--line); }
+#restore-go { background: var(--text); color: var(--bg); font-weight: 600; }
+#restore-go:disabled { background: var(--raised); color: var(--muted); }
 
 /* The ⋯ menu. A popover sits centred by default; sessions.js places it by the button. */
-#tab-menu { margin: 0; padding: .25rem; min-width: 10rem; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 6px 24px #0009; }
-#tab-menu button { display: block; width: 100%; text-align: left; border: 0; background: none; padding: .55rem .7rem; }
-#tab-menu button:hover:not(:disabled), #tab-menu button:focus-visible { background: var(--line); outline: none; }
+#tab-menu { margin: 0; padding: .3rem; min-width: 11rem; color: var(--text); background: var(--raised); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 10px 30px #000a; }
+#tab-menu button { display: block; width: 100%; text-align: left; background: none; padding: .55rem .7rem; }
+#tab-menu button:hover:not(:disabled), #tab-menu button:focus-visible { background: #3a3a3a; outline: none; }
 #tab-menu button:disabled { color: var(--muted); opacity: .55; }
 
 #stage { grid-area: stage; position: relative; min-width: 0; min-height: 0; padding: .3rem; }
-#terminal { position: absolute; inset: .3rem; }
+#terminal { position: absolute; inset: .4rem .5rem; }
 #empty { color: var(--muted); padding: 1rem; }
 
-#keys { grid-area: keys; display: flex; gap: .3rem; padding: .3rem; overflow-x: auto; border-top: 1px solid var(--line); }
-#keys button { flex: none; min-width: 2.8rem; }
-#keys [aria-pressed="true"] { background: var(--accent); color: #000; }
+#keys { grid-area: keys; display: flex; gap: .35rem; padding: .35rem .5rem .45rem; overflow-x: auto; }
+#keys button { flex: none; min-width: 2.8rem; min-height: 2.4rem; background: var(--raised); } /* icon keys have no text to give them height */
+#keys [aria-pressed="true"] { background: var(--text); color: var(--bg); }
 /* An SVG, not the emoji: not every device ships an emoji font (it showed as a box). */
-#keys .icon-attach { background: var(--panel) url(/attach.svg) no-repeat 50% 50% / 1.25rem; }
-#keys .icon-mic { background: var(--panel) url(/mic.svg) no-repeat 50% 50% / 1.25rem; }
+#keys .icon-attach { background: var(--raised) url(/attach.svg) no-repeat 50% 50% / 1.2rem; }
+#keys .icon-mic { background: var(--raised) url(/mic.svg) no-repeat 50% 50% / 1.2rem; }
 #keys .icon-mic[aria-pressed="true"] { background-color: var(--bell); animation: rec 1s ease-in-out infinite alternate; }
 @keyframes rec { to { background-color: #7a2323; } }
 @media (prefers-reduced-motion: reduce) { #keys .icon-mic[aria-pressed="true"] { animation: none; } }
 
-#status { position: fixed; right: .6rem; bottom: 3.4rem; margin: 0; padding: .3rem .6rem; border-radius: 6px; background: var(--panel); color: var(--muted); }
+#status { position: fixed; right: .6rem; bottom: 3.4rem; margin: 0; padding: .35rem .7rem; border-radius: 8px; background: var(--raised); color: var(--muted); z-index: 3; }
 #status:empty { display: none; }
 
 /* Find field and keyboard highlight in the agent list. The shortcut chip sits
    inside the field, in right padding the text never reaches, so neither the
    hint nor the chip is ever clipped. */
-#find-box { position: relative; margin: .3rem; }
+#find-box { position: relative; }
 #find {
-  width: 100%; padding: .5rem 5.4rem .5rem .6rem; font: inherit; color: var(--text);
-  background: var(--bg); border: 1px solid var(--line); border-radius: 6px;
+  width: 100%; padding: .5rem 5.4rem .5rem 2.1rem; font: inherit; color: var(--text);
+  background: var(--bg) url(/search.svg) no-repeat .65rem 50% / 1rem; border: 1px solid var(--line); border-radius: 8px;
 }
+#find::placeholder { color: var(--muted); }
 #find::-webkit-search-cancel-button { display: none; } /* Esc clears it; the x would sit on the chip */
 #find-key { position: absolute; right: .45rem; top: 50%; transform: translateY(-50%); pointer-events: none; }
 #find:focus + #find-key { opacity: .45; }
@@ -134,69 +167,116 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
 kbd {
   font: 600 .7rem/1 ui-monospace, "Cascadia Mono", Menlo, monospace; letter-spacing: .02em;
   padding: .2rem .35rem; border-radius: 4px; white-space: nowrap;
-  color: var(--muted); background: var(--panel); border: 1px solid var(--line); border-bottom-width: 2px;
+  color: var(--muted); background: var(--raised); border: 1px solid var(--line); border-bottom-width: 2px;
 }
 #tab-list .hotkey { flex: none; font-size: .62rem; padding: .15rem .3rem; }
 #tab-list li:not(:hover):not([aria-current="true"]) .hotkey { opacity: .6; }
 #tabs-hint { list-style: none; margin: 0; padding: .35rem .6rem .1rem; color: var(--muted); font-size: .75rem; line-height: 1.7; }
 #tabs-hint li { white-space: nowrap; }
 #tabs-hint kbd { font-size: .65rem; padding: .1rem .25rem; }
-#tab-list li.highlighted { outline: 2px solid var(--accent); outline-offset: -2px; }
+#tab-list li.highlighted { outline: 2px solid var(--focus); outline-offset: -2px; }
 #tab-list li.dragging { opacity: .45; }
-#tab-list li { touch-action: pan-x pan-y; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
-#tab-list li.drop-before { box-shadow: inset 0 3px var(--accent); }
-#tab-list li.drop-after { box-shadow: inset 0 -3px var(--accent); }
-#tab-list li.drop-into { outline: 2px solid var(--accent); outline-offset: -2px; color: var(--text); }
+#tab-list li { touch-action: pan-y; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+#tab-list li.drop-before { box-shadow: inset 0 2px var(--focus); }
+#tab-list li.drop-after { box-shadow: inset 0 -2px var(--focus); }
+#tab-list li.drop-into { outline: 2px solid var(--focus); outline-offset: -2px; color: var(--text); }
 #tab-list li.create, #tab-list li.create-folder { color: var(--muted); font-style: italic; white-space: nowrap; }
 
-/* Portrait or narrow (tablet upright, phone, split screen): width is scarce and
-   height is not, so tabs become a strip on top and the terminal gets full width.
-   Every row is pinned to the screen width (minmax(0, 1fr), min-width: 0): an
-   unbounded strip of 30 tabs once widened the page to 2000 px, the browser
-   zoomed out, and the terminal got 250 columns nobody could see. */
+/* Settings: one card per section, a row per key, the control on the right. */
+#settings { width: min(34rem, 100%); max-height: min(44rem, 100%); padding: 0; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 20px 60px #000c; }
+#settings::backdrop { background: #000a; }
+#settings .settings-head { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.2rem .4rem; position: sticky; top: 0; background: var(--panel); z-index: 1; }
+#settings h2 { margin: 0; font-size: 1.3rem; }
+#settings section { padding: .4rem 1.2rem 1.2rem; }
+#settings h3 { margin: .6rem 0 .2rem; font-size: .95rem; }
+#settings .hint { margin: 0 0 .8rem; color: var(--muted); font-size: .85rem; }
+#settings-done { background: var(--text); color: var(--bg); font-weight: 600; }
+#key-settings { list-style: none; margin: 0 0 .8rem; padding: 0; width: auto; gap: 0; border-radius: 12px; background: var(--bg); }
+#key-settings li { display: flex; align-items: center; gap: .7rem; padding: .55rem .8rem; min-height: 2.9rem; }
+#key-settings li + li { border-top: 1px solid var(--line); }
+#key-settings li.dragging { background: var(--raised); }
+#key-settings .grip { color: var(--muted); cursor: grab; touch-action: none; padding: .3rem .2rem; user-select: none; }
+#key-settings .label { flex: 1; }
+#key-settings .label { display: flex; align-items: center; gap: .7rem; cursor: pointer; }
+#key-settings kbd { font-size: .8rem; min-width: 3.2rem; text-align: center; color: var(--text); }
+/* A switch: a checkbox drawn as a track and a knob. */
+#key-settings input { appearance: none; width: 2.4rem; height: 1.4rem; border-radius: 1rem; background: var(--line); position: relative; cursor: pointer; flex: none; margin: 0; transition: background .15s; }
+#key-settings input::after { content: ""; position: absolute; top: .2rem; left: .2rem; width: 1rem; height: 1rem; border-radius: 50%; background: var(--text); transition: transform .15s; }
+#key-settings input:checked { background: #3b82f6; }
+#key-settings input:checked::after { transform: translateX(1rem); }
+#keys-reset { background: none; color: var(--muted); padding-left: 0; }
+#keys-reset:hover { color: var(--text); background: none; }
+
+/* Portrait or narrow (tablet upright, phone, split screen): width is scarce, so
+   the terminal takes it all and the agent list becomes a drawer, the same list
+   as on a desktop, opened from the top bar. Every row is pinned to the screen
+   width (minmax(0, 1fr)): an unbounded row once widened the page to 2000 px,
+   the browser zoomed out, and the terminal got 250 columns nobody could see. */
 @media (orientation: portrait), (max-width: 700px) {
-  #app { grid-template: "tabs" auto "stage" minmax(0, 1fr) "keys" auto / minmax(0, 1fr); }
-  #tabs { flex-direction: row; align-items: center; min-width: 0; border-right: 0; border-bottom: 1px solid var(--line); }
-  #tab-list { display: flex; gap: .2rem; min-width: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; padding: .25rem; }
-  #tab-list li { flex: none; max-width: 9rem; padding: .45rem .55rem; }
-  #tab-list li[aria-current="true"] { box-shadow: inset 0 -3px var(--accent); }
-  #tab-list li.drop-before { box-shadow: inset 3px 0 var(--accent); }
-  #tab-list li.drop-after { box-shadow: inset -3px 0 var(--accent); }
-  /* Too small to hit next to every name: only the open tab gets its ⋯. */
-  #tab-list li:not([aria-current="true"]):not(.folder) .more { display: none; }
-  #tab-list li.folder, #tab-list li.in-folder { padding-left: .55rem; }
-  /* The finder is an icon-sized button until tapped, then takes the whole row. */
-  #find-box { flex: none; margin: .3rem; }
-  #find-box:has(#find:focus) { flex: 1; }
+  #app { grid-template: "top" auto "stage" minmax(0, 1fr) "keys" auto / minmax(0, 1fr); }
+  #topbar { grid-area: top; display: flex; align-items: center; gap: .3rem; padding: .3rem .4rem; border-bottom: 1px solid var(--line); min-width: 0; }
+  #menu { --icon: url(/menu.svg); flex: 1; min-width: 0; display: flex; align-items: center; gap: .6rem; background: none; min-height: 3rem; padding: .3rem .6rem; text-align: left; }
+  #menu::before { width: 1.3rem; height: 1.3rem; }
+  #top-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+  #top-new { width: 3rem; height: 3rem; padding: 0; display: grid; place-items: center; background: none; }
+  #top-new::before { width: 1.3rem; height: 1.3rem; }
+
+  #tabs {
+    position: fixed; z-index: 4; inset: 0 auto 0 0; width: min(85vw, 22rem);
+    padding: calc(env(safe-area-inset-top) + .5rem) .5rem calc(env(safe-area-inset-bottom) + .5rem) calc(env(safe-area-inset-left) + .5rem);
+    border-right: 1px solid var(--line); box-shadow: 10px 0 40px #0008;
+    transform: translateX(-105%); visibility: hidden;
+    transition: transform .2s ease-out, visibility 0s .2s; /* hidden only once it has slid out */
+  }
+  /* Visible at once, so the finder inside can take focus in the same tap. */
+  body.drawer-open #tabs { transform: none; visibility: visible; transition: transform .2s ease-out; }
+  #scrim { display: block; position: fixed; inset: 0; z-index: 3; background: #000a; opacity: 0; pointer-events: none; transition: opacity .2s; }
+  body.drawer-open #scrim { opacity: 1; pointer-events: auto; }
   #find-key, #tabs-hint, #tab-list .hotkey, #tabs-resize { display: none; }
-  #find { width: 2.9rem; min-height: 2.75rem; padding: .5rem .6rem .5rem 2.4rem; background: var(--bg) url(/search.svg) no-repeat .8rem 50% / 1.2rem; }
-  #find::placeholder { color: transparent; }
-  #find:focus { width: 100%; }
-  #find:focus::placeholder { color: var(--muted); }
-  #tabs:has(#find:focus) #tab-list { display: none; }
-  #tabs:has(#find:focus:not(:placeholder-shown)) { flex-wrap: wrap; }
-  #tabs:has(#find:focus:not(:placeholder-shown)) #tab-list { display: flex; width: 100%; }
-  /* "+" stays visible: on a phone there is no Ctrl+Shift+K, and the magnifier
-     alone does not say "create". It opens the finder, which creates. */
-  #tab-actions { flex: none; order: -1; margin: .3rem 0 .3rem .3rem; }
-  #new-tab { flex: none; width: 2.9rem; min-height: 2.75rem; padding: 0; }
-  /* An icon the size of "+": the strip has no room for the word. */
-  #restore { width: 2.9rem; min-height: 2.75rem; padding: 0; font-size: 0; background: var(--panel) url(/restore.svg) no-repeat 50% 50% / 1.25rem; }
-  /* The picker becomes a full-screen sheet: the list scrolls, Reopen stays under the thumb. */
+  #find { padding-right: .6rem; }
+  /* Finger-sized rows. */
+  #tab-list li, .row-button { min-height: 3rem; }
+  #tab-list .more { min-width: 2.5rem; min-height: 2.25rem; }
+
+  /* Two rows of equal keys instead of a strip that scrolls: every key visible
+     and thumb-sized. */
+  #keys { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: .35rem; overflow: visible; padding: .45rem .5rem; }
+  #keys button { min-width: 0; min-height: 2.5rem; padding: .4rem 0; }
+  #keys.only-fixed { display: flex; }
+  #keys.only-fixed button { width: 3.2rem; }
+  /* Room between the terminal text and the screen edge: glued to the bezel,
+     the first column was hard to read. */
+  #terminal { inset: .35rem .5rem; }
+  #status { bottom: 7rem; }
+
+  #settings { width: 100%; max-width: none; height: 100%; max-height: none; border-radius: 0; border: 0; padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+  /* The Restore picker becomes a full-screen sheet: the list scrolls, Reopen stays under the thumb. */
   #restore-dialog { width: 100%; max-width: none; height: 100dvh; max-height: none; margin: 0; border: 0; border-radius: 0; }
   #restore-dialog form { height: 100%; padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left); }
   #restore-dialog footer { padding-bottom: calc(.7rem + env(safe-area-inset-bottom)); }
   #restore-dialog footer button { flex: 1; min-height: 2.75rem; }
-  #tabs:has(#find:focus) #tab-actions { display: none; }
-  /* Two rows of equal keys instead of a strip that scrolls: every key visible
-     and thumb-sized. Order puts the keys an agent prompt needs most on top. */
-  #keys { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: .35rem; overflow: visible; padding: .45rem .5rem; }
-  #keys button { min-width: 0; min-height: 2.5rem; padding: .4rem 0; }
-  /* Room between the strip and the screen edge, and around the terminal text:
-     glued to the bezel, the first column and the tabs were hard to read and to hit. */
-  #tabs { padding: 0 .25rem; }
-  #tab-list { gap: .3rem; }
-  #terminal { inset: .35rem .5rem; }
+}
+@media (prefers-reduced-motion: reduce) { #tabs, #scrim { transition: none !important; } }
+
+/* Installed as an app (manifest display_override): the page draws its own title
+   bar, like the Codex app, instead of the browser's empty strip. The window
+   buttons cover the top right; env(titlebar-area-*) says where they end. The
+   bar drags the window; its buttons stay clickable. Playwright cannot enter
+   this display mode, so it was checked by hand in the installed Edge app. */
+@media (display-mode: window-controls-overlay) {
+  #topbar { -webkit-app-region: drag; app-region: drag; padding-right: calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw)); }
+  #topbar button { -webkit-app-region: no-drag; app-region: no-drag; }
+}
+/* Wide: the sidebar header and the open agent's name share the title bar row. */
+@media (display-mode: window-controls-overlay) and (orientation: landscape) and (min-width: 701px) {
+  #app { grid-template: "tabs top" env(titlebar-area-height, 2.25rem) "tabs stage" 1fr "tabs keys" auto / var(--tab-w) 1fr; }
+  #topbar { grid-area: top; display: flex; align-items: center; min-width: 0; padding-left: .9rem; }
+  #topbar #menu { -webkit-app-region: drag; app-region: drag; pointer-events: none; background: none; padding: 0; gap: .5rem; font-size: .9rem; min-width: 0; display: flex; align-items: center; }
+  #menu::before, #top-new { display: none; }
+  #top-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+  #tabs { padding-top: 0; }
+  #tabs-head { display: flex; align-items: center; height: env(titlebar-area-height, 2.25rem); padding-block: 0; -webkit-app-region: drag; app-region: drag; }
+  #tabs-resize { -webkit-app-region: no-drag; app-region: no-drag; }
 }
 
 /* iOS zooms the page into any focused field with text under 16px, and stays
@@ -207,5 +287,5 @@ kbd {
 }
 
 /* Files dragged over the page: say where they go. */
-body.dropping #stage { outline: 2px dashed var(--accent); outline-offset: -4px; }
-body.dropping #stage::after { content: "Drop to attach"; position: absolute; inset: auto 0 1rem; text-align: center; color: var(--accent); pointer-events: none; }
+body.dropping #stage { outline: 2px dashed var(--muted); outline-offset: -4px; }
+body.dropping #stage::after { content: "Drop to attach"; position: absolute; inset: auto 0 1rem; text-align: center; color: var(--text); pointer-events: none; }

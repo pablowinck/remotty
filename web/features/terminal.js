@@ -17,7 +17,7 @@ export function createTerminal({ onStatus, isShortcut = () => false }) {
     // any scrollback, fit reserves 14px on the right for a scrollbar that never
     // shows: an empty strip, and text off-centre against the left margin.
     scrollback: 0,
-    theme: { background: '#101418' },
+    theme: { background: '#181818' },
   });
   const fit = new FitAddon();
   term.loadAddon(fit);

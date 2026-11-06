@@ -52,12 +52,14 @@ test('Restore reopens only the conversations picked', async ({ page, host }) => 
 test.describe('on a phone', () => {
   test.use({ viewport: { width: 360, height: 780 }, isMobile: true, hasTouch: true, deviceScaleFactor: 3 });
 
-  test('an icon in the strip, a sheet that fits, Reopen under the thumb', async ({ page, host }) => {
+  test('in the drawer, a sheet that fits, Reopen under the thumb', async ({ page, host }) => {
     fakeConversations(host);
     await pair(page, host);
 
+    await page.getByRole('button', { name: 'Agents' }).tap();
     const button = page.getByRole('button', { name: 'Restore' });
-    expect((await button.boundingBox()).width).toBeGreaterThanOrEqual(40); // thumb-sized, like "+"
+    const box = await button.boundingBox();
+    expect(box.height).toBeGreaterThanOrEqual(44); // thumb-sized
     await button.tap();
     const dialog = page.getByRole('dialog', { name: 'Restore' });
     await dialog.getByRole('checkbox', { name: 'deploy-da-semana' }).tap();

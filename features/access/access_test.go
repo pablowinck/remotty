@@ -70,21 +70,18 @@ func TestFourWrongGuessesStillAllowTheRightCode(t *testing.T) {
 	}
 }
 
-func TestRevokeAndExpiryEndAccess(t *testing.T) {
-	s, c := newStore(t)
+func TestRevokeEndsAccess(t *testing.T) {
+	s, _ := newStore(t)
 	code, _ := s.NewCode()
 	token, dev, _ := s.Redeem(code, "x")
+	if _, ok := s.Lookup(token); !ok || !s.Active(dev.ID) {
+		t.Fatal("fresh device does not authenticate") // anchor for the refusal below
+	}
 	if n, _ := s.Revoke(dev.ID); n != 1 {
 		t.Fatalf("revoke removed %d devices", n)
 	}
 	if _, ok := s.Lookup(token); ok || s.Active(dev.ID) {
 		t.Fatal("revoked device still authenticates")
-	}
-	code, _ = s.NewCode()
-	token, dev, _ = s.Redeem(code, "y")
-	c.t = c.t.Add(deviceTTL + time.Second)
-	if _, ok := s.Lookup(token); ok || s.Active(dev.ID) {
-		t.Fatal("expired device still authenticates")
 	}
 }
 
@@ -323,90 +320,31 @@ func TestUpgradeTokenListStillNeedsOrigin(t *testing.T) {
 	}
 }
 
-// A device in regular use must never expire: the owner may be away for a year.
-// Only a device left unused for a whole deviceTTL does.
-func TestUsedDeviceStaysPairedAndIdleDeviceExpires(t *testing.T) {
-	s, c := newStore(t)
-	code, _ := s.NewCode()
-	token, _, _ := s.Redeem(code, "tablet")
-	for day := 0; day < 365; day += 7 { // used once a week, for a year
-		c.t = c.t.Add(7 * 24 * time.Hour)
-		if _, ok := s.Lookup(token); !ok {
-			t.Fatalf("device used weekly expired after %d days", day+7)
-		}
-	}
-	c.t = c.t.Add(deviceTTL + time.Hour) // then nobody touches it
-	if _, ok := s.Lookup(token); ok {
-		t.Fatal("device idle for longer than deviceTTL still authenticates")
-	}
-}
-
-// Renewal must not rewrite the store on every request: 30 tabs polling every
-// 2 s would otherwise hammer the disk and the lock.
-func TestRenewalWritesAtMostOncePerDay(t *testing.T) {
-	s, c := newStore(t)
-	code, _ := s.NewCode()
-	token, _, _ := s.Redeem(code, "tablet")
-	path := filepath.Join(s.Dir, "devices.json")
-	stat := func() time.Time { i, _ := os.Stat(path); return i.ModTime() }
-
-	c.t = c.t.Add(25 * time.Hour)
-	s.Lookup(token)
-	renewed := stat()
-	time.Sleep(20 * time.Millisecond) // mtime resolution
-	for i := 0; i < 100; i++ {
-		c.t = c.t.Add(time.Minute)
-		s.Lookup(token)
-	}
-	if !stat().Equal(renewed) {
-		t.Fatal("devices.json rewritten on requests within the same day")
-	}
-}
-
-// Renewal re-reads the store under the lock, so a device revoked between the
-// token check and the renewal write must stay revoked.
-func TestRenewalNeverResurrectsARevokedDevice(t *testing.T) {
-	s, c := newStore(t)
-	code, _ := s.NewCode()
-	token, dev, _ := s.Redeem(code, "tablet")
-	c.t = c.t.Add(2 * renewEvery)
-	stale, _ := s.readDevices() // what Lookup saw before the revoke
-	s.Revoke(dev.ID)
-	s.renew(stale[0])
-	if _, ok := s.Lookup(token); ok || s.Active(dev.ID) {
-		t.Fatal("renewal brought a revoked device back")
-	}
-}
-
-// The host slides a used device's expiry forward; the browser must hear about
-// it, or the cookie dies on its first date and a phone used daily is logged out.
-func TestUseRenewsTheCookieNotOnlyTheDevice(t *testing.T) {
-	s, c := newStore(t)
+// A device stays paired until revoked, however long it sits unused, and every
+// authenticated request re-issues the cookie so the browser's own cap (400
+// days) never logs it out either.
+func TestIdleDeviceStaysPairedAndUseRefreshesTheCookie(t *testing.T) {
+	s, clk := newStore(t)
 	g := Guard{Store: s, Origins: []string{origin}}
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/pair", g.HandlePair)
 	mux.HandleFunc("GET /api/me", g.RequireDevice(HandleMe))
 	h := g.Wrap(mux)
-	paired := pairCookie(t, g, h)
-
-	c.t = c.t.Add(20 * 24 * time.Hour)
-	w := request(h, "GET", "/api/me", "remotty.test", "", paired.Value, "")
+	c := pairCookie(t, g, h)
+	if c.MaxAge != cookieMaxAge {
+		t.Fatalf("pairing cookie MaxAge = %d, want %d", c.MaxAge, cookieMaxAge)
+	}
+	clk.t = clk.t.Add(5 * 365 * 24 * time.Hour)
+	w := request(h, "GET", "/api/me", "remotty.test", "", c.Value, "")
 	if w.Code != http.StatusOK {
-		t.Fatalf("me = %d", w.Code) // anchor: the device is still paired
+		t.Fatalf("device unused for five years got %d", w.Code)
 	}
-	var renewed *http.Cookie
-	for _, k := range w.Result().Cookies() {
-		if k.Name == CookieName {
-			renewed = k
-		}
+	cookies := w.Result().Cookies()
+	if len(cookies) != 1 || cookies[0].Value != c.Value || cookies[0].MaxAge != cookieMaxAge || !cookies[0].Secure || !cookies[0].HttpOnly || cookies[0].SameSite != http.SameSiteStrictMode {
+		t.Fatalf("authenticated request did not refresh the cookie: %+v", cookies)
 	}
-	if renewed == nil || renewed.Value != paired.Value {
-		t.Fatalf("no renewed cookie on an authenticated request: %+v", w.Result().Cookies())
-	}
-	if want := c.t.Add(deviceTTL); !renewed.Expires.Equal(want.Truncate(time.Second)) {
-		t.Fatalf("cookie expires %v, want %v (paired cookie said %v)", renewed.Expires, want, paired.Expires)
-	}
-	if !renewed.Secure || !renewed.HttpOnly || renewed.SameSite != http.SameSiteStrictMode {
-		t.Fatalf("renewed cookie flags too loose: %+v", renewed)
+	g.Store.Revoke("")
+	if w := request(h, "GET", "/api/me", "remotty.test", "", c.Value, ""); w.Code != http.StatusUnauthorized || len(w.Result().Cookies()) != 0 {
+		t.Fatalf("revoked device got %d and cookies %+v", w.Code, w.Result().Cookies())
 	}
 }

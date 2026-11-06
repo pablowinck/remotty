@@ -207,3 +207,32 @@ func TestListMarksTheCallersOwnWindow(t *testing.T) {
 		t.Fatalf("more than one self: %s", list)
 	}
 }
+
+func TestWaitAgentReturnsTheAnswer(t *testing.T) {
+	t.Setenv("SHELL", "/bin/sh")
+	b := newToolbox(t)
+	got := session(t, b,
+		call(1, "create_agent", `{"name":"lento","command":"sleep 1; echo resposta-$((8*8)); while :; do date +%N; sleep 0.2; done"}`),
+	)
+	var created struct{ ID string }
+	json.Unmarshal([]byte(text(t, got[0])), &created)
+	got = session(t, b, call(2, "wait_agent", `{"id":"`+created.ID+`","until":"resposta-64","timeout_seconds":5}`))
+	var waited struct {
+		Ready  bool
+		Screen string
+	}
+	if err := json.Unmarshal([]byte(text(t, got[0])), &waited); err != nil || !waited.Ready || !strings.Contains(waited.Screen, "resposta-64") {
+		t.Fatalf("wait_agent = %s", text(t, got[0]))
+	}
+}
+
+func TestSecondsDefaultsAndCaps(t *testing.T) {
+	for _, c := range []struct {
+		in   float64
+		want time.Duration
+	}{{0, defaultWait}, {0.5, defaultWait}, {5, 5 * time.Second}, {99999, maxWait}} {
+		if got := seconds(c.in, defaultWait, maxWait); got != c.want {
+			t.Errorf("seconds(%v) = %v, want %v", c.in, got, c.want)
+		}
+	}
+}

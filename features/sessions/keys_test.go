@@ -131,3 +131,65 @@ func TestCreateAtStartsInDir(t *testing.T) {
 	tm.SendText(id, `echo "em:$(pwd):$((6*7))"`, true)
 	waitScreen(t, tm, id, "em:"+dir+":42")
 }
+
+// A screen that keeps changing is not done; once it settles, Wait returns it.
+func TestWaitReturnsWhenTheScreenSettles(t *testing.T) {
+	tm, id := readyWindow(t)
+	// Ticks for ~1.5 s like a spinner, then prints a result only execution makes.
+	tm.SendText(id, `for i in 1 2 3 4 5 6; do echo tick-$i; sleep 0.25; done; echo fim-$((5*5))`, true)
+	start := time.Now()
+	screen, ready, err := tm.Wait(id, "", time.Second, 10*time.Second)
+	if err != nil || !ready {
+		t.Fatalf("wait = ready %v, err %v", ready, err)
+	}
+	if !strings.Contains(screen, "fim-25") {
+		t.Fatalf("returned before the work ended (%v):\n%s", time.Since(start), screen)
+	}
+}
+
+func TestWaitUntilTextReturnsAsSoonAsItShows(t *testing.T) {
+	tm, id := readyWindow(t)
+	tm.SendText(id, `sleep 1; echo vez-$((2+5)); sleep 30`, true)
+	start := time.Now()
+	screen, ready, err := tm.Wait(id, "vez-7", time.Minute, 10*time.Second)
+	if err != nil || !ready || !strings.Contains(screen, "vez-7") {
+		t.Fatalf("wait = ready %v, err %v:\n%s", ready, err, screen)
+	}
+	if took := time.Since(start); took > 5*time.Second {
+		t.Fatalf("took %v: it waited for quiet, not for the text", took)
+	}
+}
+
+// A screen that never settles times out with ready false, and the screen.
+func TestWaitTimesOut(t *testing.T) {
+	tm, id := readyWindow(t)
+	tm.SendText(id, `while :; do date +%N; sleep 0.1; done`, true)
+	start := time.Now()
+	screen, ready, err := tm.Wait(id, "", 2*time.Second, 1500*time.Millisecond)
+	if err != nil || ready {
+		t.Fatalf("wait = ready %v, err %v", ready, err)
+	}
+	if took := time.Since(start); took < 1500*time.Millisecond || took > 4*time.Second {
+		t.Fatalf("timeout took %v", took)
+	}
+	if !strings.Contains(screen, "while :") {
+		t.Fatalf("no screen with the timeout:\n%s", screen)
+	}
+	if _, _, err := tm.Wait("@999", "", time.Second, time.Second); err != ErrNoWindow {
+		t.Fatalf("missing window = %v", err)
+	}
+}
+
+// The prompt often names the marker it asks for; its echo must not count.
+func TestWaitUntilIgnoresTheMarkerAlreadyOnScreen(t *testing.T) {
+	tm, id := readyWindow(t)
+	tm.SendText(id, `sleep 1.5; echo marca`, true)
+	start := time.Now()
+	screen, ready, err := tm.Wait(id, "marca", time.Minute, 10*time.Second)
+	if err != nil || !ready {
+		t.Fatalf("wait = ready %v, err %v", ready, err)
+	}
+	if !strings.Contains(screen, "\nmarca\n") || time.Since(start) < time.Second {
+		t.Fatalf("returned on the echo after %v:\n%s", time.Since(start), screen)
+	}
+}

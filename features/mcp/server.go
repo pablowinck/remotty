@@ -107,6 +107,6 @@ func initialize(params json.RawMessage) map[string]any {
 }
 
 const instructions = `Drives the tmux windows remotty shows as agent tabs. Call list_agents first: ids look like "@3", and the window you run in is marked self. ` +
-	`To talk to another agent, send_text it a prompt, then read_screen until it is done. ` +
-	`To answer a menu or a question (Claude Code's multiple choice), read_screen to see the options, then send_keys (a digit, or Up/Down then Enter). ` +
+	`To talk to another agent, send_text it a prompt, then wait_agent: it returns the screen once the agent is done. ` +
+	`To answer a menu or a question (Claude Code's multiple choice), read the options on that screen (or read_screen), then send_keys (a digit, or Up/Down then Enter). ` +
 	`Folders nest; a path like "jobs/seo" is the folder seo inside jobs.`

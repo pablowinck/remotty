@@ -154,6 +154,11 @@ the page shows what it does within a couple of seconds. Pass the same
 - `send_keys`: presses keys (`Enter`, `Escape`, `Up`, `Down`, `Tab`, `C-c`, a
   digit...), to pick an option in a menu.
 - `read_screen`: what a window shows, plus scrollback on request.
+- `wait_agent`: blocks until an agent is done and returns its screen: done is
+  a screen that has not changed for 3 s (a working Claude Code ticks its spinner
+  every second), or a new line holding the text you pass as `until` (the prompt
+  that names it does not count). It gives up after
+  2 minutes (up to 10) with `ready: false`; call it again to keep waiting.
 
 Whatever runs in an agent can type into every other one, so add it only to
 agents you would let use your keyboard.

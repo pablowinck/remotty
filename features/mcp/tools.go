@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/pablowinck/remotty/features/sessions"
 )
@@ -28,6 +29,9 @@ type args struct {
 	Enter      *bool    `json:"enter"`
 	Keys       []string `json:"keys"`
 	Scrollback int      `json:"scrollback"`
+	Until      string   `json:"until"`
+	Quiet      float64  `json:"quiet_seconds"`
+	Timeout    float64  `json:"timeout_seconds"`
 }
 
 type tool struct {
@@ -87,6 +91,36 @@ var tools = []tool{
 	{Name: "read_screen", Description: "Return what a window shows now, plus up to scrollback earlier lines (max 2000).",
 		InputSchema: schema([]string{"id"}, map[string]any{"id": idProp, "scrollback": map[string]any{"type": "integer", "minimum": 0}}),
 		run:         func(b Toolbox, a args) (any, error) { return b.Tmux.Capture(a.ID, a.Scrollback) }},
+	{Name: "wait_agent", Description: "Wait until an agent is done, then return its screen: until its screen has not changed for quiet_seconds (a working agent's spinner keeps it moving), or until a line holding the text until shows up (one already on screen when the call starts does not count, so the prompt that names it does not either). " +
+		"Call it after send_text to get the answer, or to see a question it asks. ready is false when timeout_seconds passed first; call it again to keep waiting.",
+		InputSchema: schema([]string{"id"}, map[string]any{"id": idProp,
+			"until":           map[string]any{"type": "string", "description": "return as soon as the screen contains this text"},
+			"quiet_seconds":   map[string]any{"type": "number", "minimum": 1, "default": defaultQuiet.Seconds()},
+			"timeout_seconds": map[string]any{"type": "number", "minimum": 1, "maximum": maxWait.Seconds(), "default": defaultWait.Seconds()}}),
+		run: waitAgent},
+}
+
+const (
+	defaultQuiet = 3 * time.Second
+	defaultWait  = 120 * time.Second
+	maxWait      = 600 * time.Second // the call blocks every other tool call meanwhile
+)
+
+func waitAgent(b Toolbox, a args) (any, error) {
+	screen, ready, err := b.Tmux.Wait(a.ID, a.Until, seconds(a.Quiet, defaultQuiet, maxWait), seconds(a.Timeout, defaultWait, maxWait))
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"ready": ready, "screen": screen}, nil
+}
+
+// seconds turns a tool argument into a duration: fallback when absent or
+// below a second, capped at most.
+func seconds(n float64, fallback, most time.Duration) time.Duration {
+	if n < 1 {
+		return fallback
+	}
+	return min(time.Duration(n*float64(time.Second)), most)
 }
 
 func (b Toolbox) list() []tool { return tools }

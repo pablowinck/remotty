@@ -94,6 +94,61 @@ func (t Tmux) Capture(id string, scrollback int) (string, error) {
 	return t.run(args...)
 }
 
+// WaitPoll is how often Wait looks at the screen.
+var WaitPoll = 250 * time.Millisecond
+
+// Wait returns once window id is done: when a line holding until shows up, or,
+// with until empty, when the screen has not changed for quiet. A working agent
+// keeps its screen moving (Claude Code's spinner and timer tick every second),
+// so a still screen means it is at its prompt or asking something. ready is
+// false when timeout came first. screen is what it showed last.
+// shortcut: a still screen is a guess, not a signal; a program that sits silent
+// while it works (a long command with no output) looks done after quiet.
+func (t Tmux) Wait(id, until string, quiet, timeout time.Duration) (screen string, ready bool, err error) {
+	deadline := time.Now().Add(timeout)
+	stillSince := time.Now()
+	var before map[string]bool
+	for {
+		now, err := t.Capture(id, 0)
+		if err != nil {
+			return screen, false, err
+		}
+		if before == nil {
+			before = lineSet(now)
+		}
+		if now != screen {
+			screen, stillSince = now, time.Now()
+		}
+		if until != "" && hasNewLine(screen, until, before) || until == "" && time.Since(stillSince) >= quiet {
+			return screen, true, nil
+		}
+		if time.Now().After(deadline) {
+			return screen, false, nil
+		}
+		time.Sleep(WaitPoll)
+	}
+}
+
+// hasNewLine reports whether screen has a line holding until that was not on
+// it when the wait began. The prompt that asked for the marker usually names it
+// ("then write DONE=<x>"), and matching that echo returned before the answer.
+func hasNewLine(screen, until string, before map[string]bool) bool {
+	for _, l := range strings.Split(screen, "\n") {
+		if strings.Contains(l, until) && !before[l] {
+			return true
+		}
+	}
+	return false
+}
+
+func lineSet(screen string) map[string]bool {
+	set := map[string]bool{}
+	for _, l := range strings.Split(screen, "\n") {
+		set[l] = true
+	}
+	return set
+}
+
 var paneIDPattern = regexp.MustCompile(`^%[0-9]+$`)
 
 // WindowOf returns the window holding tmux pane pane ($TMUX_PANE, "%3"), or ""

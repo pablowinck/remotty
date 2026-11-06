@@ -39,7 +39,7 @@
       </ul>
       <div id="tab-actions">
         <button id="new-tab" type="button" aria-label="New agent">+</button>
-        <button id="restore" type="button" title="Reopen the Claude Code conversations that stopped in the last 2 hours">Restore</button>
+        <button id="restore" type="button" aria-label="Restore" title="Reopen Claude Code conversations that stopped">Restore</button>
       </div>
       <div id="tabs-resize" role="separator" tabindex="0" aria-orientation="vertical" aria-controls="tabs"
            aria-label="Resize the agent list" title="Drag to resize, double-click to fit the names"></div>
@@ -63,6 +63,17 @@
       <button data-action="record" aria-label="Record a voice note" aria-pressed="false" class="icon-mic"></button>
       <input id="attach-input" type="file" multiple hidden>
     </div>
+    <dialog id="restore-dialog" aria-labelledby="restore-title">
+      <form method="dialog">
+        <h2 id="restore-title">Restore</h2>
+        <p class="hint">Stopped in the last 24 hours. Ticked: the last 2 hours.</p>
+        <ul id="restore-list"></ul>
+        <footer>
+          <button value="cancel" formnovalidate>Cancel</button>
+          <button id="restore-go" value="go">Reopen</button>
+        </footer>
+      </form>
+    </dialog>
     <p id="status" role="status"></p>
   </div>
 </body>

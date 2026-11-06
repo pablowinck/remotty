@@ -101,9 +101,13 @@ remotty revoke ID   # unpair; its open terminals close within a second
 - 🎤 records a voice note: tap to start (the button pulses), tap again to stop.
   It is uploaded like an attachment and its path is typed at the prompt; what
   reads the audio is up to whatever runs in the terminal.
-- **Restore** (under the agent list) reopens, one window each, every Claude Code
-  conversation touched in the last 2 hours that no process holds anymore — after
-  the machine or tmux went down. It runs `claude --resume <id>` in the
+- **Restore** (under the agent list; ↺ next to "+" on a phone) lists the Claude
+  Code conversations no process holds anymore that had a message in the last 24
+  hours — after the machine or tmux went down — and reopens the ones you tick,
+  one window each. Those that stopped in the last 2 hours come ticked. Each comes
+  back under the name its tab had, in the folder it was in (remotty notes both
+  every 30 s while the agent runs), else under its /rename or the title Claude
+  Code gave it. It runs `claude --resume <id>` in the
   conversation's own directory; change it with `-restore-command` (for example
   `-restore-command "claude --dangerously-skip-permissions --resume"`), or pass
   `-restore-command ""` to hide the button.

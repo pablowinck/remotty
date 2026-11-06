@@ -18,6 +18,35 @@ const depthOf = (f) => (f ? f.split(SEP).length : 0);
 const within = (f, path) => f === path || f.startsWith(path + SEP);
 const pathLabel = (f) => f.split(SEP).join(' / ');
 
+// A conversation without a name of any kind is shown by its id, the last resort.
+const conversationName = (c) => c.name || c.id.slice(0, 8);
+
+function ago(iso) {
+  const min = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60000));
+  return min < 60 ? `${min} min ago` : `${Math.round(min / 60)} h ago`; // the picker reaches one day back
+}
+
+// One line of the Restore picker. textContent throughout: names and prompts are
+// written by programs in the terminal.
+function restoreRow(c) {
+  const li = document.createElement('li');
+  const label = document.createElement('label');
+  const box = document.createElement('input');
+  box.type = 'checkbox';
+  box.value = c.id;
+  box.checked = c.recent;
+  const name = document.createElement('span');
+  name.className = 'name';
+  name.textContent = conversationName(c);
+  const meta = document.createElement('span');
+  meta.className = 'meta';
+  const where = [leafOf(c.folder), c.dir.split('/').pop(), ago(c.last)].filter(Boolean).join(' · ');
+  meta.textContent = c.prompt ? `${where} — ${c.prompt}` : where;
+  label.append(box, name, meta);
+  li.append(label);
+  return li;
+}
+
 // Storage can be missing or throw (private mode, blocked site data): folders then
 // just start open on every load.
 function loadCollapsed() {
@@ -546,20 +575,44 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
   });
   document.getElementById('new-tab').addEventListener('pointerdown', (e) => e.preventDefault());
 
-  // Restore: after a crash, reopen every Claude Code conversation that stopped.
+  // Restore: after a crash, pick which stopped Claude Code conversations come back.
   // The host answers 404 when it runs without -restore-command; then the button goes.
   const restoreButton = document.getElementById('restore');
+  const restoreDialog = document.getElementById('restore-dialog');
+  const restoreList = document.getElementById('restore-list');
+  const restoreGo = document.getElementById('restore-go');
+  const picked = () => [...restoreList.querySelectorAll('input:checked')].map((box) => box.value);
+  const countPicked = () => {
+    const n = picked().length;
+    restoreGo.textContent = n ? `Reopen ${n}` : 'Reopen';
+    restoreGo.disabled = !n;
+  };
+  restoreList.addEventListener('change', countPicked);
+
   restoreButton.addEventListener('click', async () => {
     restoreButton.disabled = true;
     try {
-      const opened = await api('POST', '/api/restore');
-      onStatus(opened.length ? `Reopened ${opened.length}: ${opened.map((c) => c.title || c.id.slice(0, 8)).join(', ')}` : 'Nothing to reopen');
-      await refresh();
+      const stopped = await api('GET', '/api/restore');
+      if (!stopped.length) return onStatus('Nothing to reopen');
+      restoreList.replaceChildren(...stopped.map(restoreRow));
+      countPicked();
+      restoreDialog.showModal();
     } catch (e) {
       if (e.message.includes('404')) restoreButton.hidden = true;
       onError(e);
     } finally {
       restoreButton.disabled = false;
+    }
+  });
+
+  restoreDialog.addEventListener('close', async () => {
+    if (restoreDialog.returnValue !== 'go') return;
+    try {
+      const opened = await api('POST', '/api/restore', { ids: picked() });
+      onStatus(opened.length ? `Reopened ${opened.length}: ${opened.map(conversationName).join(', ')}` : 'Nothing to reopen');
+      await refresh();
+    } catch (e) {
+      onError(e);
     }
   });
 

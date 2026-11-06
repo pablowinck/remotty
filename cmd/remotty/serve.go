@@ -62,13 +62,27 @@ func serve(args []string, store access.Store) error {
 	var restorer *sessions.Restorer
 	if f.restore != "" {
 		home, _ := os.UserHomeDir()
-		restorer = sessions.NewRestorer(tm, filepath.Join(home, ".claude"), f.restore)
+		restorer = sessions.NewRestorer(tm, filepath.Join(home, ".claude"), f.restore, filepath.Join(store.Dir, "restore-tabs.json"))
+		go rememberTabs(restorer)
 	}
 	srv := &http.Server{Handler: guard.Wrap(routes(guard, tm, uploadDir, restorer)), ReadHeaderTimeout: 10 * time.Second}
 	// Scripts and tests read this line to learn the port when -addr ends in :0.
 	fmt.Printf("remotty listening on http://%s (origins: %s)\n", ln.Addr(), strings.Join(allowed, ", "))
 	fmt.Printf("Open %s on your device, then run `remotty pair` here.\n", allowed[0])
 	return runUntilSignal(srv, ln)
+}
+
+// rememberTabs keeps the tab name and folder of each running conversation, so
+// Restore can bring them back after tmux goes down.
+// shortcut: a tab renamed less than 30 s before a crash comes back with its old
+// name; hook rename/move instead if that bites.
+func rememberTabs(r *sessions.Restorer) {
+	for {
+		if err := r.Remember(); err != nil {
+			log.Printf("restore: remembering tabs: %v", err)
+		}
+		time.Sleep(30 * time.Second)
+	}
 }
 
 func warnIfExposed(addr string) {

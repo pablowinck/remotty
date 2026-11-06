@@ -80,6 +80,22 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
 #new-tab { flex: 1; font-size: 1.2rem; }
 #restore { flex: none; color: var(--muted); }
 
+/* The Restore picker: a native modal dialog (Esc, focus trap, backdrop come with it). */
+#restore-dialog { width: min(34rem, calc(100% - 2rem)); max-height: min(36rem, calc(100dvh - 2rem)); padding: 0; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 10px 40px #000b; }
+#restore-dialog::backdrop { background: #0009; }
+#restore-dialog form { display: flex; flex-direction: column; max-height: inherit; }
+#restore-dialog h2 { margin: 0; padding: .9rem 1rem 0; font-size: 1.05rem; }
+#restore-dialog .hint { margin: .2rem 1rem .6rem; color: var(--muted); font-size: .8rem; }
+#restore-list { list-style: none; margin: 0; padding: 0 .4rem; overflow-y: auto; flex: 1; min-height: 0; overscroll-behavior: contain; }
+#restore-list label { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: .7rem; align-items: center; min-height: 2.75rem; padding: .5rem .6rem; border-radius: 6px; cursor: pointer; }
+#restore-list label:hover { background: var(--line); }
+#restore-list input { grid-row: span 2; width: 1.15rem; height: 1.15rem; margin: 0; accent-color: var(--accent); }
+#restore-list .name, #restore-list .meta { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#restore-list .meta { color: var(--muted); font-size: .8rem; }
+#restore-dialog footer { display: flex; justify-content: flex-end; gap: .5rem; padding: .7rem 1rem; border-top: 1px solid var(--line); }
+#restore-go { background: var(--accent); color: #000; border-color: var(--accent); }
+#restore-go:disabled { background: var(--panel); color: var(--muted); border-color: var(--line); }
+
 /* The ⋯ menu. A popover sits centred by default; sessions.js places it by the button. */
 #tab-menu { margin: 0; padding: .25rem; min-width: 10rem; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 6px 24px #0009; }
 #tab-menu button { display: block; width: 100%; text-align: left; border: 0; background: none; padding: .55rem .7rem; }
@@ -164,7 +180,13 @@ kbd {
      alone does not say "create". It opens the finder, which creates. */
   #tab-actions { flex: none; order: -1; margin: .3rem 0 .3rem .3rem; }
   #new-tab { flex: none; width: 2.9rem; min-height: 2.75rem; padding: 0; }
-  #restore { display: none; } /* a rare action; on a phone the strip has no room for it */
+  /* An icon the size of "+": the strip has no room for the word. */
+  #restore { width: 2.9rem; min-height: 2.75rem; padding: 0; font-size: 0; background: var(--panel) url(/restore.svg) no-repeat 50% 50% / 1.25rem; }
+  /* The picker becomes a full-screen sheet: the list scrolls, Reopen stays under the thumb. */
+  #restore-dialog { width: 100%; max-width: none; height: 100dvh; max-height: none; margin: 0; border: 0; border-radius: 0; }
+  #restore-dialog form { height: 100%; padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left); }
+  #restore-dialog footer { padding-bottom: calc(.7rem + env(safe-area-inset-bottom)); }
+  #restore-dialog footer button { flex: 1; min-height: 2.75rem; }
   #tabs:has(#find:focus) #tab-actions { display: none; }
   /* Two rows of equal keys instead of a strip that scrolls: every key visible
      and thumb-sized. Order puts the keys an agent prompt needs most on top. */

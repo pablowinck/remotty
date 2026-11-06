@@ -8,7 +8,7 @@ import (
 	"net/http"
 )
 
-//go:embed index.html app.js style.css manifest.json icon.svg search.svg attach.svg mic.svg features lib
+//go:embed index.html app.js style.css manifest.json icon.svg search.svg attach.svg mic.svg restore.svg features lib
 var files embed.FS
 
 // Handler serves the UI. Unknown paths fall back to index.html so a reload on

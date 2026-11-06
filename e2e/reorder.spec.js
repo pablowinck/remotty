@@ -77,8 +77,9 @@ test.describe('on a phone', () => {
     await page.waitForTimeout(300);
     expect(names(host)).toEqual(['um', 'dois', 'tres']);
 
-    // Hold still, then slide to the right half of "tres".
-    const steps = [...Array(8)].map((_, i) => ['touchMove', { x: a.x + 10 + ((c.x + c.width * 0.8 - a.x - 10) * (i + 1)) / 8, y }, 20]);
+    // Hold still, then slide to the right half of "tres", as far as it is on screen.
+    const to = Math.min(c.x + c.width * 0.8, page.viewportSize().width - 4);
+    const steps = [...Array(8)].map((_, i) => ['touchMove', { x: a.x + 10 + ((to - a.x - 10) * (i + 1)) / 8, y }, 20]);
     await touch(page, [['touchStart', { x: a.x + 10, y }, 500], ...steps, ['touchEnd', null]]);
     await expect.poll(() => names(host)).toEqual(['dois', 'tres', 'um']);
   });

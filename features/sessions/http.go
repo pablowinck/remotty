@@ -135,13 +135,31 @@ func (t Tmux) handleClose(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// RestoreWindow is how far back a conversation counts as "was running".
-const RestoreWindow = 2 * time.Hour
+// RestoreWindow is how far back a conversation counts as "was running" when
+// the machine went down: the picker ticks those. ListWindow is how far back it
+// offers the rest, unticked.
+const (
+	RestoreWindow = 2 * time.Hour
+	ListWindow    = 24 * time.Hour
+)
 
-// Routes registers POST /api/restore, which reopens stopped agents.
+// Routes registers GET /api/restore, the stopped conversations the picker
+// offers, and POST /api/restore, which reopens the ones picked.
 func (r *Restorer) Routes(mux *http.ServeMux, wrap func(http.HandlerFunc) http.HandlerFunc) {
+	mux.HandleFunc("GET /api/restore", wrap(func(w http.ResponseWriter, req *http.Request) {
+		list, err := r.Stopped()
+		if respond(w, err) {
+			writeJSON(w, http.StatusOK, list)
+		}
+	}))
 	mux.HandleFunc("POST /api/restore", wrap(func(w http.ResponseWriter, req *http.Request) {
-		opened, err := r.Restore(RestoreWindow)
+		var body struct {
+			IDs []string `json:"ids"`
+		}
+		if !decode(w, req, &body) {
+			return
+		}
+		opened, err := r.Restore(body.IDs)
 		if respond(w, err) {
 			writeJSON(w, http.StatusOK, opened)
 		}

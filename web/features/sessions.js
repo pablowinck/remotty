@@ -635,11 +635,16 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
       const w = hotkeyOrder()[n - 1];
       if (w) open(w.id);
     },
-    // Alt+Shift+Up / Alt+Shift+Down: move the open agent one place, like a drag.
-    shift(delta) {
-      const at = windows.findIndex((w) => w.id === current);
-      const neighbour = windows[at + delta];
-      if (at >= 0 && neighbour) move(current, neighbour.id, delta > 0);
+    // Alt+Shift+Up / Alt+Shift+Down: move the open agent one place in the order
+    // shown, like a drag: next to a window in another folder, it joins that folder.
+    async shift(delta) {
+      const order = ordered();
+      const at = order.findIndex((w) => w.id === current);
+      const neighbour = order[at + delta];
+      if (at < 0 || !neighbour) return;
+      await move(current, neighbour.id, delta > 0, false);
+      if (folderOf(neighbour) !== folderOf(order[at])) await setFolder(current, folderOf(neighbour));
+      await refresh();
     },
     // Alt+Down / Alt+Up: next or previous agent in the order shown, wrapping around.
     step(delta) {

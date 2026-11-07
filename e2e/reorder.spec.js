@@ -54,6 +54,23 @@ test('Alt+Shift+Up moves the open agent one place up', async ({ page, host }) =>
   await expect(page.locator('#tab-list li[aria-current="true"] .name')).toHaveText('tres'); // still open
 });
 
+test('Alt+Shift+Up follows the list as shown, into the folder above', async ({ page, host }) => {
+  setup(host);
+  const folderOf = (name) => host.tmux('show-options', '-wqv', '-t', host.windows().find((w) => w.name === name).id, '@remotty-folder').trim();
+  host.tmux('set-option', '-t', '=main:', '@remotty-folders', 'a');
+  host.tmux('set-option', '-w', '-t', host.windows()[2].id, '@remotty-folder', 'a');
+  await pair(page, host);
+  const agents = page.locator('#tab-list li:not(.folder) .name');
+  await expect(agents).toHaveText(['tres', 'um', 'dois']); // folders first, so "um" shows below "tres"
+  await row(page, 'um').click();
+  await page.keyboard.press('Alt+Shift+ArrowUp');
+  await expect.poll(() => folderOf('um')).toBe('a'); // like a drop beside "tres": it joins its folder
+  expect(names(host)).toEqual(['dois', 'um', 'tres']);
+  await expect(agents).toHaveText(['um', 'tres', 'dois']);
+  await expect(row(page, 'um')).toHaveClass(/in-folder/);
+  expect(folderOf('dois')).toBe(''); // the other loose one stays loose
+});
+
 test.describe('on a phone', () => {
   test.use({ viewport: { width: 360, height: 780 }, isMobile: true, hasTouch: true, deviceScaleFactor: 3 });
 

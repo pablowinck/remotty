@@ -121,7 +121,8 @@ remotty revoke ID   # unpair; its open terminals close within a second
 - Ctrl+V pastes the viewer's clipboard, as in any desktop terminal. On a Mac, iPad
   or iPhone it is ⌘V, and Ctrl+V stays the terminal's own ^V, as in Terminal.app.
 - Drag a tab to reorder the agents (on a touch screen, hold it first so a swipe
-  still scrolls), or move the open one with Alt+Shift+↑/↓. The order is tmux's
+  still scrolls), or move the open one with Alt+Shift+↑/↓; dropped or moved next
+  to an agent in a folder, it joins that folder. The order is tmux's
   own window order, so ssh and every other device see it.
 - Drag the line between the agent list and the terminal to widen or narrow the
   list; double-click it to fit the longest name. Each browser keeps its own width.

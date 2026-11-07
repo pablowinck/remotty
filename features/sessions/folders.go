@@ -105,6 +105,29 @@ func (t Tmux) AddFolder(name string) error {
 	return t.saveFolders(append(folders, name))
 }
 
+// EnsureFolder creates folder path and every folder above it that is missing,
+// each after its parent's own folders: how Restore rebuilds a nested folder
+// that went down with tmux.
+func (t Tmux) EnsureFolder(path string) error {
+	folders, err := t.Folders()
+	if err != nil || slices.Contains(folders, path) {
+		return err
+	}
+	for _, leaf := range strings.Split(path, folderSep) {
+		if validName(leaf) != nil || leaf == "" {
+			return ErrBadName
+		}
+	}
+	var missing []string
+	for f := path; f != "" && !slices.Contains(folders, f); f = folderParent(f) {
+		missing = append([]string{f}, missing...)
+	}
+	for _, f := range missing {
+		folders = slices.Insert(folders, lastChild(folders, folderParent(f)), f)
+	}
+	return t.saveFolders(folders)
+}
+
 // SetFolder puts window id in folder; an empty folder takes it out of any.
 func (t Tmux) SetFolder(id, folder string) error {
 	if !windowIDPattern.MatchString(id) {

@@ -197,6 +197,11 @@ func listAgents(b Toolbox, _ args) (any, error) {
 }
 
 func createAgent(b Toolbox, a args) (any, error) {
+	if a.Folder != "" {
+		if err := folderExists(b, a.Folder); err != nil {
+			return nil, err
+		}
+	}
 	id, err := b.Tmux.CreateAt(a.Name, a.Dir)
 	if err != nil {
 		return nil, err
@@ -225,10 +230,26 @@ func createFolder(b Toolbox, a args) (any, error) {
 	if slices.Contains(folders, a.Name) {
 		return nil, fmt.Errorf("a top-level folder %q exists; create under another name, then rename_folder", a.Name)
 	}
+	if !slices.Contains(folders, toPath(a.Parent)) {
+		return nil, sessions.ErrNoFolder
+	}
 	if err := b.Tmux.AddFolder(a.Name); err != nil {
 		return nil, err
 	}
 	return ok(b.Tmux.NestFolder(a.Name, toPath(a.Parent)))
+}
+
+// folderExists is checked before a create, so a missing folder leaves no
+// orphan window behind for a retrying agent to duplicate.
+func folderExists(b Toolbox, folder string) error {
+	folders, err := b.Tmux.Folders()
+	if err != nil {
+		return err
+	}
+	if !slices.Contains(folders, toPath(folder)) {
+		return sessions.ErrNoFolder
+	}
+	return nil
 }
 
 func sendText(b Toolbox, a args) (any, error) {

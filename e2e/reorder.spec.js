@@ -54,6 +54,23 @@ test('Alt+Shift+Up moves the open agent one place up', async ({ page, host }) =>
   await expect(page.locator('#tab-list li[aria-current="true"] .name')).toHaveText('tres'); // still open
 });
 
+test('Alt+Shift+Up follows the list as shown, into the folder above', async ({ page, host }) => {
+  setup(host);
+  const folderOf = (name) => host.tmux('show-options', '-wqv', '-t', host.windows().find((w) => w.name === name).id, '@remotty-folder').trim();
+  host.tmux('set-option', '-t', '=main:', '@remotty-folders', 'a');
+  host.tmux('set-option', '-w', '-t', host.windows()[2].id, '@remotty-folder', 'a');
+  await pair(page, host);
+  const agents = page.locator('#tab-list li:not(.folder) .name');
+  await expect(agents).toHaveText(['tres', 'um', 'dois']); // folders first, so "um" shows below "tres"
+  await row(page, 'um').click();
+  await page.keyboard.press('Alt+Shift+ArrowUp');
+  await expect.poll(() => folderOf('um')).toBe('a'); // like a drop beside "tres": it joins its folder
+  expect(names(host)).toEqual(['dois', 'um', 'tres']);
+  await expect(agents).toHaveText(['um', 'tres', 'dois']);
+  await expect(row(page, 'um')).toHaveClass(/in-folder/);
+  expect(folderOf('dois')).toBe(''); // the other loose one stays loose
+});
+
 test.describe('on a phone', () => {
   test.use({ viewport: { width: 360, height: 780 }, isMobile: true, hasTouch: true, deviceScaleFactor: 3 });
 
@@ -65,11 +82,13 @@ test.describe('on a phone', () => {
     }
   };
 
-  // Local: phone tabs have no ×. Held still and let go, a tab opens a menu to
+  // Phone tabs have no ×. Held still and let go, a tab opens a menu to
   // close it; Undo in the status line brings the same agent back.
   test('holding a tab still opens its menu; Close hides it and Undo brings it back', async ({ page, host }) => {
     setup(host);
     await pair(page, host);
+    await page.getByRole('button', { name: 'Agents' }).tap();
+    await expect(page.locator('#tabs')).toBeInViewport({ ratio: 1 });
     const dois = host.windows().find((w) => w.name === 'dois').id;
     const b = await row(page, 'dois').boundingBox();
     const at = { x: b.x + b.width / 2, y: b.y + b.height / 2 };
@@ -91,67 +110,33 @@ test.describe('on a phone', () => {
     await expect.poll(() => host.windows().map((w) => w.id)).toContain(dois); // the same window, still running
   });
 
-  // Local: the phone strip has no Restore and no ⌘Z. A ↶ next to "+" shows while
-  // an agent can be reopened: a tap reopens the last closed one.
-  test('the ↶ next to + reopens the last closed agent', async ({ page, host }) => {
-    setup(host);
-    await pair(page, host);
-    const undo = page.getByRole('button', { name: 'Reopen the last closed agent' });
-    await expect(undo).toBeVisible(); // always there: holding it is the phone's only way to Restore
-    await undo.tap();
-    await expect(page.locator('#status')).toContainText('Nothing to reopen'); // nothing closed yet
-    const dois = host.windows().find((w) => w.name === 'dois').id;
-    const b = await row(page, 'dois').boundingBox();
-    await touch(page, [['touchStart', { x: b.x + b.width / 2, y: b.y + b.height / 2 }, 500], ['touchEnd', null]]);
-    await page.getByRole('button', { name: 'Close', exact: true }).tap();
-    await expect.poll(() => names(host)).toEqual(['um', 'tres']);
-    await undo.tap();
-    await expect.poll(() => host.windows().map((w) => w.id)).toContain(dois); // the same window, still running
-    await expect(page.locator('#tab-list li[aria-current="true"] .name')).toHaveText('dois');
-  });
-
-  test('holding the ↶ offers Restore, as the desktop button does', async ({ page, host }) => {
-    setup(host);
-    await pair(page, host);
-    const b = await row(page, 'dois').boundingBox();
-    await touch(page, [['touchStart', { x: b.x + b.width / 2, y: b.y + b.height / 2 }, 500], ['touchEnd', null]]);
-    await page.getByRole('button', { name: 'Close', exact: true }).tap();
-    const u = await page.getByRole('button', { name: 'Reopen the last closed agent' }).boundingBox();
-    await touch(page, [['touchStart', { x: u.x + u.width / 2, y: u.y + u.height / 2 }, 600], ['touchEnd', null]]);
-    const menu = page.locator('#undo-menu');
-    await expect(menu).toBeVisible();
-    await expect(menu.getByRole('button', { name: 'Restore stopped Claude conversations' })).toBeVisible();
-    await menu.getByRole('button', { name: 'Restore stopped Claude conversations' }).tap();
-    await expect(page.locator('#status')).toContainText('Nothing to reopen'); // no Claude transcripts in the test HOME
-    expect(names(host)).toEqual(['um', 'tres']); // anchor: Restore is not the ↶ tap
-  });
-
   test('a quick tap on a tab opens it, without the menu', async ({ page, host }) => {
     setup(host);
     await pair(page, host);
+    await page.getByRole('button', { name: 'Agents' }).tap();
+    await expect(page.locator('#tabs')).toBeInViewport({ ratio: 1 });
     await row(page, 'tres').tap();
     await expect(page.locator('#tab-list li[aria-current="true"] .name')).toHaveText('tres');
     await expect(page.locator('#hold-menu')).toBeHidden();
   });
 
-  test('holding a tab, then sliding it, reorders; a plain swipe does not', async ({ page, host }) => {
+  test('in the drawer, holding a tab, then sliding it, reorders; a plain swipe does not', async ({ page, host }) => {
     setup(host);
     await pair(page, host);
+    await page.getByRole('button', { name: 'Agents' }).tap();
+    await expect(page.locator('#tabs')).toBeInViewport({ ratio: 1 });
     const a = await row(page, 'um').boundingBox();
     const c = await row(page, 'tres').boundingBox();
-    const y = a.y + a.height / 2;
+    const x = a.x + 40;
 
-    // A quick swipe along the strip is a scroll, never a drag.
-    await touch(page, [['touchStart', { x: a.x + 10, y }], ['touchMove', { x: c.x + c.width - 5, y }], ['touchEnd', null]]);
+    // A quick swipe down the list is a scroll, never a drag.
+    await touch(page, [['touchStart', { x, y: a.y + 10 }], ['touchMove', { x, y: c.y + c.height - 5 }], ['touchEnd', null]]);
     await page.waitForTimeout(300);
     expect(names(host)).toEqual(['um', 'dois', 'tres']);
 
-    // Hold still, then slide to the right half of "tres". Local: the ↶ narrows
-    // the strip, so "tres" runs past its edge; aim at the part still on screen.
-    const list = await page.locator('#tab-list').boundingBox();
-    const toX = Math.min(c.x + c.width * 0.8, list.x + list.width - 4);
-    const steps = [...Array(8)].map((_, i) => ['touchMove', { x: a.x + 10 + ((toX - a.x - 10) * (i + 1)) / 8, y }, 20]);
-    await touch(page, [['touchStart', { x: a.x + 10, y }, 500], ...steps, ['touchEnd', null]]);
+    // Hold still, then slide to the lower half of "tres".
+    const steps = [...Array(8)].map((_, i) => ['touchMove', { x, y: a.y + 10 + ((c.y + c.height * 0.8 - a.y - 10) * (i + 1)) / 8 }, 20]);
+    await touch(page, [['touchStart', { x, y: a.y + 10 }, 500], ...steps, ['touchEnd', null]]);
     await expect.poll(() => names(host)).toEqual(['dois', 'tres', 'um']);
   });
 });

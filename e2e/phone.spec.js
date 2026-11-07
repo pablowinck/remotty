@@ -59,31 +59,44 @@ test('opening the soft keyboard shrinks the terminal instead of hiding the promp
   expect(await page.evaluate(() => innerWidth)).toBe(360);
 });
 
-test('the current agent and the finder stay usable in the top bar', async ({ page, host }) => {
+// The top bar names the open agent, so you know where you are with the list
+// closed, and opens the list as a drawer over the terminal.
+test('the top bar names the open agent and opens the list as a drawer', async ({ page, host }) => {
   agents(host, 12);
   await pair(page, host);
   expect(await page.evaluate(() => innerWidth)).toBe(360); // measured on the real screen, not a zoomed-out page
-  const current = page.locator('#tab-list li[aria-current="true"]');
-  await expect(current).toBeInViewport({ ratio: 0.9 });
-  // Collapsed, the finder is a thumb-sized button that leaves the row to the agents.
-  const find = await page.locator('#find').boundingBox();
-  expect(find.width).toBeGreaterThanOrEqual(44);
-  expect(find.width).toBeLessThanOrEqual(60);
-  expect(find.height).toBeGreaterThanOrEqual(40);
-  // Tapping into the finder gives it room to type a name.
-  await page.locator('#find').tap();
-  await expect.poll(async () => (await page.locator('#find').boundingBox()).width).toBeGreaterThan(200);
+  const toggle = page.getByRole('button', { name: 'Agents' });
+  await expect(page.locator('#top-name')).toHaveText(host.windows()[0].name);
+  const box = await toggle.boundingBox();
+  expect(box.height).toBeGreaterThanOrEqual(44);
+  await expect(page.locator('#tabs')).not.toBeInViewport();
+  await toggle.tap();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.locator('#tabs')).toBeInViewport({ ratio: 1 });
+  // Vertical, the same list as on a desktop, with room for whole names.
+  const rows = page.locator('#tab-list li[data-id]');
+  await expect(rows).toHaveCount(13);
+  const [a, b] = [await rows.nth(0).boundingBox(), await rows.nth(1).boundingBox()];
+  expect(b.y).toBeGreaterThan(a.y + a.height - 1);
+  expect(a.height).toBeGreaterThanOrEqual(44);
+  // The scrim closes it.
+  await page.mouse.click(350, 400);
+  await expect(page.locator('#tabs')).not.toBeInViewport();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
 });
 
-test('an agent chosen from the finder scrolls into view in the tab strip', async ({ page, host }) => {
+test('an agent picked in the drawer opens, closes the drawer and gets the keys', async ({ page, host }) => {
   agents(host, 12);
   await pair(page, host);
-  const far = page.locator('#tab-list li', { hasText: 'agente-com-nome-12' });
-  await expect(far).not.toBeInViewport(); // anchor: it starts off screen
+  await page.getByRole('button', { name: 'Agents' }).tap();
   await page.locator('#find').tap();
   await page.keyboard.type('nome-12');
-  await page.keyboard.press('Enter');
-  await expect(page.locator('#tab-list li[aria-current="true"]')).toBeInViewport({ ratio: 0.9 });
+  await page.locator('#tab-list li', { hasText: 'agente-com-nome-12' }).tap();
+  await expect(page.locator('#tabs')).not.toBeInViewport();
+  await expect(page.locator('#top-name')).toHaveText('agente-com-nome-12');
+  await page.keyboard.type('echo no-doze-$((6*7))\n');
+  const w = host.windows().find((x) => x.name === 'agente-com-nome-12');
+  await expect.poll(() => host.capture(w.id)).toContain('no-doze-42');
 });
 
 // Switching agents with a finger must not pop the soft keyboard up: it hides
@@ -92,8 +105,9 @@ test('tapping another tab leaves the soft keyboard closed until the terminal is 
   agents(host, 2);
   await pair(page, host);
   const textarea = page.locator('#terminal .xterm-helper-textarea');
+  await page.getByRole('button', { name: 'Agents' }).tap();
   await page.locator('#tab-list li', { hasText: 'agente-com-nome-2' }).tap();
-  await expect(page.locator('#tab-list li[aria-current="true"] .name')).toHaveText('agente-com-nome-2');
+  await expect(page.locator('#top-name')).toHaveText('agente-com-nome-2');
   await page.waitForTimeout(500); // the socket opens and would have focused by now
   await expect(textarea).not.toBeFocused();
   await page.locator('#terminal').tap();
@@ -107,7 +121,7 @@ test('tapping another tab leaves the soft keyboard closed until the terminal is 
 // a visible "+" and a finder that says it creates.
 test('a visible + creates an agent by touch alone', async ({ page, host }) => {
   await pair(page, host);
-  const plus = page.getByRole('button', { name: 'New agent' });
+  const plus = page.getByRole('button', { name: 'New agent' }).first();
   await expect(plus).toBeInViewport({ ratio: 1 });
   const box = await plus.boundingBox();
   expect(box.width).toBeGreaterThanOrEqual(40);
@@ -118,10 +132,7 @@ test('a visible + creates an agent by touch alone', async ({ page, host }) => {
   await page.keyboard.type('pelo-celular');
   await page.locator('#tab-list li.create').tap(); // tap the row, not Enter
   await expect(page.locator('#tab-list li[aria-current="true"] .name')).toHaveText('pelo-celular');
-  // Opened by a tap, the agent leaves the soft keyboard closed until its terminal is tapped.
-  await expect(page.locator('#terminal .xterm-helper-textarea')).not.toBeFocused();
-  await expect(page.locator('#find')).not.toBeFocused();
-  await page.locator('#terminal').tap();
+  // The keyboard was up for the name: it stays up, now typing in the new agent.
   await expect(page.locator('#terminal .xterm-helper-textarea')).toBeFocused();
   await page.keyboard.type('echo criado-$((4*4))\n');
   const w = () => host.windows().find((x) => x.name === 'pelo-celular');

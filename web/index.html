@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content, viewport-fit=cover">
-  <meta name="theme-color" content="#282c34">
+  <meta name="theme-color" content="#181818">
   <title>remotty</title>
   <link rel="manifest" href="/manifest.json">
   <link rel="icon" href="/icon.svg">
@@ -24,23 +24,27 @@
   </main>
 
   <div id="app" hidden>
+    <!-- Narrow screens only: where you are, and the way into the agent list. -->
+    <header id="topbar">
+      <button id="menu" type="button" aria-label="Agents" aria-controls="tabs" aria-expanded="false">
+        <span class="dot" aria-hidden="true"></span><span id="top-name"></span>
+      </button>
+      <button id="top-new" type="button" aria-label="New agent" class="icon-plus"></button>
+    </header>
+    <div id="scrim" aria-hidden="true"></div>
     <nav id="tabs" aria-label="Agents">
+      <div id="tabs-head">remotty</div>
+      <button id="new-tab" type="button" class="row-button icon-plus">New agent</button>
       <div id="find-box">
         <input id="find" type="search" placeholder="Find or create" aria-label="Find or create an agent" aria-keyshortcuts="Control+Shift+K"
                aria-controls="tab-list" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="go">
-        <kbd id="find-key" aria-hidden="true">⌘T</kbd>
+        <kbd id="find-key" aria-hidden="true">Ctrl ⇧ K</kbd>
       </div>
       <ul id="tab-list"></ul>
       <div id="tab-menu" popover role="menu" aria-label="Agent options"></div>
-      <ul id="tabs-hint">
-        <li><kbd>Alt 1–9</kbd> open</li>
-        <li><kbd>Alt ↑↓</kbd> next</li>
-        <li><kbd>Alt ⇧ ↑↓</kbd> or drag to reorder</li>
-      </ul>
-      <div id="tab-actions">
-        <button id="new-tab" type="button" aria-label="New agent">+</button>
-        <button id="undo-tab" type="button" aria-label="Reopen the last closed agent" title="Reopen the last closed agent (hold: Restore)" hidden></button>
-        <button id="restore" type="button" title="Reopen the Claude Code conversations that stopped in the last 2 hours">Restore</button>
+      <div id="tabs-foot">
+        <button id="restore" type="button" class="row-button icon-restore" aria-label="Restore" title="Reopen Claude Code conversations that stopped">Restore</button>
+        <button id="open-settings" type="button" class="row-button icon-settings">Settings</button>
       </div>
       <div id="tabs-resize" role="separator" tabindex="0" aria-orientation="vertical" aria-controls="tabs"
            aria-label="Resize the agent list" title="Drag to resize, double-click to fit the names"></div>
@@ -64,7 +68,38 @@
       <button data-action="record" aria-label="Record a voice note" aria-pressed="false" class="icon-mic"></button>
       <input id="attach-input" type="file" multiple hidden>
     </div>
+    <dialog id="restore-dialog" aria-labelledby="restore-title">
+      <form method="dialog">
+        <h2 id="restore-title">Restore</h2>
+        <p class="hint">Stopped in the last 24 hours. Ticked: the last 2 hours.</p>
+        <ul id="restore-list"></ul>
+        <footer>
+          <button value="cancel" formnovalidate>Cancel</button>
+          <button id="restore-go" value="go">Reopen</button>
+        </footer>
+      </form>
+    </dialog>
     <p id="status" role="status"></p>
+    <dialog id="settings" aria-labelledby="settings-title">
+      <div class="settings-head">
+        <h2 id="settings-title">Settings</h2>
+        <button id="settings-done" type="button">Done</button>
+      </div>
+      <section aria-labelledby="keys-title">
+        <h3 id="keys-title">Key bar</h3>
+        <p class="hint">The keys under the terminal, on this device. Drag <span aria-hidden="true">⠿</span> or press Alt ↑↓ on a key to reorder. The microphone and attach are always there.</p>
+        <ul id="key-settings"></ul>
+        <button id="keys-reset" type="button">Reset to defaults</button>
+      </section>
+      <section aria-labelledby="theme-title">
+        <h3 id="theme-title">Theme</h3>
+        <p class="hint">On this device.</p>
+        <div id="theme-picker" role="radiogroup" aria-labelledby="theme-title">
+          <label><input type="radio" name="theme" value="graphite"> Graphite</label>
+          <label><input type="radio" name="theme" value="ghostty"> Ghostty</label>
+        </div>
+      </section>
+    </dialog>
     <button id="undo-close" type="button" hidden>Undo</button>
     <dialog id="hold-menu" aria-label="Agent">
       <p class="hold-menu-name"></p>
@@ -78,11 +113,6 @@
         <button type="button" value="close" autofocus>Done</button>
       </div>
       <pre></pre>
-    </dialog>
-    <dialog id="undo-menu" aria-label="Reopen">
-      <button type="button" value="undo">Reopen last closed</button>
-      <button type="button" value="restore">Restore stopped Claude conversations</button>
-      <button type="button" value="cancel" autofocus>Cancel</button>
     </dialog>
   </div>
 </body>

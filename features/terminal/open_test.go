@@ -3,6 +3,7 @@ package terminal
 import (
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 )
@@ -39,5 +40,33 @@ func TestOpenOnlyWebURLsAndOnlyFromThisMachine(t *testing.T) {
 	}
 	if want := []string{"https://example.com/a?b=1", "http://example.org"}; strings.Join(opened, " ") != strings.Join(want, " ") {
 		t.Fatalf("opened %q, want %q", opened, want)
+	}
+}
+
+// An opener that fails (xdg-open on a host with no desktop, as under WSL) must
+// answer an error, so the page falls back to opening the link itself.
+func TestFailedOpenerIsAnErrorNotSilence(t *testing.T) {
+	dir := t.TempDir()
+	marker := dir + "/ran"
+	for _, c := range []struct{ script, want string }{
+		{"#!/bin/sh\necho \"$1\" > " + marker + "\nexit 0\n", "ok"},
+		{"#!/bin/sh\necho \"$1\" > " + marker + "\nexit 3\n", "error"},
+	} {
+		opener := dir + "/opener"
+		if err := os.WriteFile(opener, []byte(c.script), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		t.Setenv("REMOTTY_OPENER", opener)
+		os.Remove(marker)
+		got := "ok"
+		if openURL("https://example.com/x") != nil {
+			got = "error"
+		}
+		if b, _ := os.ReadFile(marker); strings.TrimSpace(string(b)) != "https://example.com/x" {
+			t.Fatalf("the opener did not run with the URL: %q", b) // anchor: the opener really ran
+		}
+		if got != c.want {
+			t.Fatalf("opener %q: got %s, want %s", c.script, got, c.want)
+		}
 	}
 }

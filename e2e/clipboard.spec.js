@@ -57,7 +57,7 @@ test('a program can set the clipboard but never read it through OSC 52', async (
   await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe('via-osc');
 });
 
-// Local: a finger can't select xterm's text, so holding it opens the screen as
+// A finger can't select xterm's text, so holding it opens the screen as
 // selectable text, with Copy all. A drag must still scroll, not open it.
 test.describe('on a phone', () => {
   test.use({ viewport: { width: 360, height: 780 }, isMobile: true, hasTouch: true, deviceScaleFactor: 3 });

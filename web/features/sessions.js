@@ -18,6 +18,35 @@ const depthOf = (f) => (f ? f.split(SEP).length : 0);
 const within = (f, path) => f === path || f.startsWith(path + SEP);
 const pathLabel = (f) => f.split(SEP).join(' / ');
 
+// A conversation without a name of any kind is shown by its id, the last resort.
+const conversationName = (c) => c.name || c.id.slice(0, 8);
+
+function ago(iso) {
+  const min = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60000));
+  return min < 60 ? `${min} min ago` : `${Math.round(min / 60)} h ago`; // the picker reaches one day back
+}
+
+// One line of the Restore picker. textContent throughout: names and prompts are
+// written by programs in the terminal.
+function restoreRow(c) {
+  const li = document.createElement('li');
+  const label = document.createElement('label');
+  const box = document.createElement('input');
+  box.type = 'checkbox';
+  box.value = c.id;
+  box.checked = c.recent;
+  const name = document.createElement('span');
+  name.className = 'name';
+  name.textContent = conversationName(c);
+  const meta = document.createElement('span');
+  meta.className = 'meta';
+  const where = [leafOf(c.folder), c.dir.split('/').pop(), ago(c.last)].filter(Boolean).join(' · ');
+  meta.textContent = c.prompt ? `${where} — ${c.prompt}` : where;
+  label.append(box, name, meta);
+  li.append(label);
+  return li;
+}
+
 // Storage can be missing or throw (private mode, blocked site data): folders then
 // just start open on every load.
 function loadCollapsed() {
@@ -36,7 +65,7 @@ function saveCollapsed(set) {
 
 const stateOf = (w) => (w.bell ? 'bell' : w.silence ? 'waiting' : w.activity ? 'activity' : 'idle');
 
-export function createSessions({ onSelect, onError, onStatus = () => {}, focusTerminal, holdKeys = () => {} }) {
+export function createSessions({ onSelect, onError, onStatus = () => {}, focusTerminal, holdKeys = () => {}, onOpen = () => {}, onReachable = () => {} }) {
   const list = document.getElementById('tab-list');
   const find = document.getElementById('find');
   const menu = document.getElementById('tab-menu');
@@ -45,23 +74,26 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
   const collapsed = loadCollapsed();
   let current = null;
   let highlighted = 0; // index into the visible rows while the field has focus
-  let naming = false; // local: ⌘T opened the finder to name a new agent
+  let naming = false; // ⌘T opened the finder to name a new agent
   const findHint = document.getElementById('find').placeholder;
   function stopNaming() {
     naming = false;
     find.placeholder = findHint;
   }
   let timer = null;
+  let unreachable = false; // the last poll failed, and its error is on screen
 
   async function refresh() {
     try {
       [windows, folders] = await Promise.all([api('GET', '/api/windows'), api('GET', '/api/folders')]);
     } catch (e) {
+      unreachable = true;
       onError(e);
       return;
     }
+    if (unreachable) onReachable();
+    unreachable = false;
     render();
-    syncUndoTab();
     // The open window was closed elsewhere (ssh, an agent exiting): follow tmux
     // to a window that still exists instead of retrying a dead one forever.
     if (current && !windows.some((w) => w.id === current)) {
@@ -124,6 +156,17 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
       return li;
     }));
     list.querySelector('.highlighted')?.scrollIntoView({ block: 'nearest' });
+    showCurrent();
+  }
+
+  // The top bar of a narrow screen names the open agent, with its state dot,
+  // so you know where you are without opening the list.
+  function showCurrent() {
+    const w = windows.find((x) => x.id === current);
+    const button = document.getElementById('menu');
+    document.getElementById('top-name').textContent = w ? w.name : 'Agents'; // textContent: set by programs in the terminal
+    if (w) button.dataset.state = stateOf(w);
+    else delete button.dataset.state;
   }
 
   function rowElement(row) {
@@ -303,7 +346,6 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
   let dragged = false;
   const DRAG_PX = 8;
   const HOLD_MS = 350;
-  const horizontal = () => getComputedStyle(list).display === 'flex';
 
   list.addEventListener('pointerdown', (e) => {
     const li = e.target.closest('li[data-id], li.folder');
@@ -357,7 +399,7 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
     if (!over || (isFolder && within(over.dataset.folder, dragging.dataset.folder))) return null;
     if (!isFolder && over.classList.contains('folder')) return { over, into: true };
     const r = over.getBoundingClientRect();
-    const [at, size] = horizontal() ? [e.clientX - r.left, r.width] : [e.clientY - r.top, r.height];
+    const [at, size] = [e.clientY - r.top, r.height];
     if (isFolder && at > size / 4 && at < size * 3 / 4) return { over, into: true };
     return { over, after: at > size / 2 };
   }
@@ -375,7 +417,7 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
     const spot = e && dropSpot(e, d.li);
     d.li.classList.remove('dragging');
     timer = setInterval(refresh, POLL_MS);
-    // Local: held still and let go on a phone = the tab's menu, not a drop.
+    // Held still and let go on a phone = the tab's menu, not a drop.
     if (d.pointerType === 'touch' && !d.moved && d.li.dataset.id) {
       render();
       showHoldMenu(d.li.dataset.id);
@@ -384,7 +426,7 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
     setTimeout(() => (dragged = false)); // after the click this pointerup produces
   }
 
-  // Local: the phone has no × on its tabs. A hold opens this menu instead.
+  // The phone has no × on its tabs. A hold opens this menu instead.
   const holdMenu = document.getElementById('hold-menu');
   function showHoldMenu(id) {
     const w = windows.find((x) => x.id === id);
@@ -428,47 +470,7 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
     } catch (e) {
       onStatus(e.message.includes('nothing') ? 'Nothing to reopen' : e.message);
     }
-    syncUndoTab();
   }
-
-  const restoreButton = document.getElementById('restore');
-  // ↶ next to "+", on a phone: tap reopens the last closed agent, hold offers
-  // Restore too (the desktop's button, which the phone strip has no room for).
-  const undoTab = document.getElementById('undo-tab');
-  const undoMenu = document.getElementById('undo-menu');
-  async function syncUndoTab() {
-    try {
-      const { count } = await api('GET', '/api/windows/reopenable');
-      undoTab.hidden = count === 0 && restoreButton.hidden; // without Restore it only shows when useful
-      undoTab.dataset.count = count;
-    } catch {} // the next poll tries again
-  }
-  let undoHold = 0;
-  let undoHeld = false;
-  undoTab.addEventListener('pointerdown', (e) => {
-    e.preventDefault(); // keep the soft keyboard as it was
-    undoHeld = false;
-    undoHold = setTimeout(() => {
-      undoHeld = true;
-      undoMenu.querySelector('[value="undo"]').disabled = undoTab.dataset.count === '0';
-      undoMenu.querySelector('[value="restore"]').hidden = restoreButton.hidden;
-      undoMenu.showModal();
-      undoMenu.openedAt = performance.now();
-    }, HOLD_MS);
-  });
-  for (const t of ['pointerup', 'pointercancel', 'pointerleave']) undoTab.addEventListener(t, () => clearTimeout(undoHold));
-  undoTab.addEventListener('click', () => {
-    if (undoHeld) return; // the hold opened the menu; its release is not a tap
-    reopenLast();
-  });
-  undoMenu.addEventListener('click', (e) => {
-    const action = e.target.closest('button')?.value;
-    if (e.target === undoMenu && performance.now() - undoMenu.openedAt < 400) return; // the finger that opened it
-    if (!action && e.target !== undoMenu) return;
-    undoMenu.close();
-    if (action === 'undo') reopenLast();
-    if (action === 'restore') restoreButton.click();
-  });
 
   // Hide the window for a while (⌘Z brings it back) and move to its neighbour.
   async function closeUndoable(id) {
@@ -481,7 +483,6 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
       return onError(e);
     }
     offerUndo();
-    syncUndoTab();
     await refresh();
     if (id === current) open(next ? next.id : null);
   }
@@ -576,14 +577,9 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
     find.value = '';
     highlighted = 0;
     select(id);
+    onOpen();
     focusTerminal();
-    revealCurrent();
-  }
-
-  // On a phone the tabs are a strip wider than the screen: bring the chosen one
-  // in. Only once the finder has closed, because the strip is hidden while it is open.
-  function revealCurrent() {
-    list.querySelector('[aria-current="true"]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    list.querySelector('[aria-current="true"]')?.scrollIntoView({ block: 'nearest' });
   }
 
   const create = (name, folder = '') => openNew('/api/windows', { name }, folder);
@@ -651,8 +647,8 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
     render();
   });
   find.addEventListener('keydown', onFindKey);
-  // A tap on a result would first blur the finder, which hides the results on a
-  // phone before the click lands. Keeping focus on pointerdown lets the tap through.
+  // A tap on a result would first blur the finder, which redraws the list
+  // before the click lands. Keeping focus on pointerdown lets the tap through.
   list.addEventListener('pointerdown', (e) => {
     if (document.activeElement === find) e.preventDefault();
   });
@@ -668,19 +664,44 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
   });
   document.getElementById('new-tab').addEventListener('pointerdown', (e) => e.preventDefault());
 
-  // Restore: after a crash, reopen every Claude Code conversation that stopped.
+  // Restore: after a crash, pick which stopped Claude Code conversations come back.
   // The host answers 404 when it runs without -restore-command; then the button goes.
+  const restoreButton = document.getElementById('restore');
+  const restoreDialog = document.getElementById('restore-dialog');
+  const restoreList = document.getElementById('restore-list');
+  const restoreGo = document.getElementById('restore-go');
+  const picked = () => [...restoreList.querySelectorAll('input:checked')].map((box) => box.value);
+  const countPicked = () => {
+    const n = picked().length;
+    restoreGo.textContent = n ? `Reopen ${n}` : 'Reopen';
+    restoreGo.disabled = !n;
+  };
+  restoreList.addEventListener('change', countPicked);
+
   restoreButton.addEventListener('click', async () => {
     restoreButton.disabled = true;
     try {
-      const opened = await api('POST', '/api/restore');
-      onStatus(opened.length ? `Reopened ${opened.length}: ${opened.map((c) => c.title || c.id.slice(0, 8)).join(', ')}` : 'Nothing to reopen');
-      await refresh();
+      const stopped = await api('GET', '/api/restore');
+      if (!stopped.length) return onStatus('Nothing to reopen');
+      restoreList.replaceChildren(...stopped.map(restoreRow));
+      countPicked();
+      restoreDialog.showModal();
     } catch (e) {
       if (e.message.includes('404')) restoreButton.hidden = true;
       onError(e);
     } finally {
       restoreButton.disabled = false;
+    }
+  });
+
+  restoreDialog.addEventListener('close', async () => {
+    if (restoreDialog.returnValue !== 'go') return;
+    try {
+      const opened = await api('POST', '/api/restore', { ids: picked() });
+      onStatus(opened.length ? `Reopened ${opened.length}: ${opened.map(conversationName).join(', ')}` : 'Nothing to reopen');
+      await refresh();
+    } catch (e) {
+      onError(e);
     }
   });
 
@@ -697,11 +718,16 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
       const w = hotkeyOrder()[n - 1];
       if (w) open(w.id);
     },
-    // Alt+Shift+Up / Alt+Shift+Down: move the open agent one place, like a drag.
-    shift(delta) {
-      const at = windows.findIndex((w) => w.id === current);
-      const neighbour = windows[at + delta];
-      if (at >= 0 && neighbour) move(current, neighbour.id, delta > 0);
+    // Alt+Shift+Up / Alt+Shift+Down: move the open agent one place in the order
+    // shown, like a drag: next to a window in another folder, it joins that folder.
+    async shift(delta) {
+      const order = ordered();
+      const at = order.findIndex((w) => w.id === current);
+      const neighbour = order[at + delta];
+      if (at < 0 || !neighbour) return;
+      await move(current, neighbour.id, delta > 0, false);
+      if (folderOf(neighbour) !== folderOf(order[at])) await setFolder(current, folderOf(neighbour));
+      await refresh();
     },
     // Alt+Down / Alt+Up: next or previous agent in the order shown, wrapping around.
     step(delta) {

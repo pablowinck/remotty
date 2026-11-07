@@ -1,6 +1,7 @@
 package terminal
 
 import (
+	"context"
 	"encoding/json"
 	"net"
 	"net/http"
@@ -8,25 +9,26 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"time"
 
 	"github.com/pablowinck/remotty/features/access"
 )
 
-// Local: ⌘-click on a link, with the page open on this machine, opens it in the
-// default browser (Arc) instead of the one showing the page (a Chrome app). A
+// ⌘-click on a link, with the page open on this machine, opens it in the
+// default browser instead of the one showing the page (a Chrome app). A
 // phone's click keeps opening on the phone: the page only asks from loopback.
 func OpenRoute(mux *http.ServeMux, wrap func(http.HandlerFunc) http.HandlerFunc) {
 	mux.HandleFunc("POST /api/open", wrap(handleOpen))
 }
 
 // openURL is swapped in tests; REMOTTY_OPENER lets the e2e host open nothing.
+// It waits for the opener: open(1) and xdg-open hand the URL over and exit, and
+// one that fails (xdg-open without a desktop, as under WSL) must answer an
+// error, so the page opens the link itself instead.
 var openURL = func(u string) error {
-	cmd := exec.Command(opener(), u)
-	if err := cmd.Start(); err != nil {
-		return err
-	}
-	go cmd.Wait()
-	return nil
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	return exec.CommandContext(ctx, opener(), u).Run()
 }
 
 func opener() string {

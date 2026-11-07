@@ -52,7 +52,7 @@ function wireDrop(deps) {
 const MAX_BYTES = 50 << 20;
 
 // upload saves the file on the host and returns its path, or null on failure.
-// Local: a file too big to copy is looked up on the host by name and size, so
+// A file too big to copy is looked up on the host by name and size, so
 // one dropped on the host itself keeps its own path.
 async function upload(blob, name, { onStatus }) {
   const big = blob.size > MAX_BYTES;

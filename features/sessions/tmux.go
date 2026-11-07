@@ -217,7 +217,7 @@ func (t Tmux) AttachCommand(id string) ([]string, error) {
 	}, nil
 }
 
-// Local: tmux strips OSC 8 links (Claude Code prints them) unless the outer
+// Tmux strips OSC 8 links (Claude Code prints them) unless the outer
 // terminal has the hyperlinks feature. It is read when a client attaches, so it
 // is set before; appended once, never over what the user configured.
 func (t Tmux) forwardLinks() {

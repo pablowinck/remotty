@@ -131,7 +131,7 @@ func TestAttachToMissingWindowIsRefused(t *testing.T) {
 	}
 }
 
-// Local: every attach is a browser tab (re)connecting, so the hyperlinks
+// Every attach is a browser tab (re)connecting, so the hyperlinks
 // feature must be added once, not once per reconnect.
 func TestAttachAddsHyperlinksOnce(t *testing.T) {
 	tm := newTestTmux(t)
@@ -243,10 +243,11 @@ func TestNewWindowsStartInHome(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	out, _ := tm.run("display-message", "-p", "-t", id, "#{pane_current_path}")
-	if got := strings.TrimSpace(out); got != home {
-		t.Fatalf("new window started in %q, want %q", got, home)
-	}
+	// On Linux the path is read from /proc: the parent's until the shell is up.
+	waitFor(t, "the new window to start in HOME", func() bool {
+		out, _ := tm.run("display-message", "-p", "-t", id, "#{pane_current_path}")
+		return strings.TrimSpace(out) == home
+	})
 }
 
 func TestEnsureCreatesTheSocketDirectory(t *testing.T) {

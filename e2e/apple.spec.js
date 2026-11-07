@@ -7,13 +7,12 @@ test.describe('on a Mac', () => {
   test('hints are written with the Mac modifier symbols', async ({ page, host }) => {
     host.tmux('new-window', '-d', '-t', '=main:', '-n', 'agente-1');
     await pair(page, host);
-    await expect(page.locator('#find-key')).toHaveText('⌘T');
-    await expect(page.locator('#tabs-hint')).toContainText('⌥1–9');
+    await expect(page.locator('#find-key')).toHaveText('⌃⇧K');
     await expect(page.locator('#tab-list li[data-index="1"] .hotkey')).toHaveText('⌥2'); // second row
-    await expect(page.locator('#tabs-hint')).not.toContainText('Alt'); // anchor above: the hint is there
+    await expect(page.locator('#tabs')).not.toContainText('Alt'); // anchor above: the chips are there
   });
 
-  // Local, as in Ghostty: ⌘T asks for a name first. Enter creates the agent
+  // As in Ghostty: ⌘T asks for a name first. Enter creates the agent
   // with that name, even when another agent's name contains it, and lands in
   // its terminal. Nothing reaches the shell the shortcut came from.
   test('⌘T asks for a name, and Enter creates that agent', async ({ page, host }) => {
@@ -73,7 +72,7 @@ test.describe('on a Mac', () => {
     await expect.poll(() => host.capture(id)).toContain('ainda=viva-25'); // its shell kept running
   });
 
-  // Local: ⌘E duplicates the open agent, like its ⋯ Duplicate, and nothing
+  // ⌘E duplicates the open agent, like its ⋯ Duplicate, and nothing
   // reaches the shell the shortcut came from.
   test('⌘E duplicates the open agent and lands in the copy', async ({ page, host }) => {
     const [orig] = host.windows();

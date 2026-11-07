@@ -15,9 +15,29 @@ const GHOSTTY = {
   brightBlue: '#7aa6da', brightMagenta: '#c397d8', brightCyan: '#70c0b1', brightWhite: '#eaeaea',
 };
 
+// Settings → Theme. Graphite is the default; Ghostty is its stock look
+// (`ghostty +show-config --default`): JetBrains Mono 13, embedded, and its 16
+// ANSI colours. Colours 16–255 are the standard xterm cube both share.
+const LOOKS = {
+  graphite: {
+    cursorBlink: true, cursorStyle: 'block', fontFamily: 'ui-monospace, "Cascadia Mono", Menlo, monospace', fontSize: 14,
+    theme: { background: '#181818' },
+  },
+  ghostty: {
+    cursorBlink: false, cursorStyle: 'block', fontFamily: '"JetBrains Mono", ui-monospace, Menlo, monospace', fontSize: 13,
+    theme: {
+      background: '#282c34', foreground: '#ffffff', cursor: '#ffffff', cursorAccent: '#282c34',
+      black: '#1d1f21', red: '#cc6666', green: '#b5bd68', yellow: '#f0c674',
+      blue: '#81a2be', magenta: '#b294bb', cyan: '#8abeb7', white: '#c5c8c6',
+      brightBlack: '#666666', brightRed: '#d54e53', brightGreen: '#b9ca4a', brightYellow: '#e7c547',
+      brightBlue: '#7aa6da', brightMagenta: '#c397d8', brightCyan: '#70c0b1', brightWhite: '#eaeaea',
+    },
+  },
+};
+
 // Switched with a finger, the soft keyboard stays closed until the terminal
 // itself is tapped. A mouse or a keyboard still hands the keys to the terminal
-// at once. Personal preference (local branch), not upstream behaviour.
+// at once.
 let lastInput = matchMedia('(pointer: coarse)').matches ? 'touch' : 'mouse'; // no keyboard popping up at load
 addEventListener('pointerdown', (e) => (lastInput = e.pointerType), true);
 addEventListener('keydown', () => (lastInput = 'key'), true);
@@ -26,30 +46,28 @@ const byTouch = () => lastInput === 'touch';
 // Retry fast after a blip, then back off so a host that is down (or a tablet
 // that lost signal) is not hammered. Reset on every successful connection.
 const RETRY_MS = [500, 1000, 2000, 4000, 8000];
+// A handshake that hangs (a phone back from sleep, a changed network) can take
+// minutes to fail by itself; give up on it and retry instead.
+const CONNECT_MS = 5000;
 
-export function createTerminal({ onStatus, isShortcut = () => false }) {
+export function createTerminal({ onStatus, isShortcut = () => false, look = 'graphite' }) {
   const term = new Terminal({
-    cursorBlink: false,
-    cursorStyle: 'block',
-    fontFamily: '"JetBrains Mono", ui-monospace, Menlo, monospace',
-    fontSize: 13,
     // The history lives in tmux (copy mode), so xterm's own stays empty. With
     // any scrollback, fit reserves 14px on the right for a scrollbar that never
     // shows: an empty strip, and text off-centre against the left margin.
     scrollback: 0,
-    theme: GHOSTTY,
+    ...(LOOKS[look] ?? LOOKS.graphite),
   });
   const fit = new FitAddon();
   term.loadAddon(fit);
   term.open(document.getElementById('terminal'));
-  // xterm measures the cell once, at open: a webfont that arrives later would
-  // leave it measured on the fallback. Re-measure when it lands.
   wireClipboard(term);
   wireLinks(term);
 
   let socket = null;
   let windowId = null;
   let failures = 0;
+  let retryTimer = 0;
   let ctrlArmed = false;
   // Keys typed while the socket is still connecting (a slow tailnet handshake,
   // a reconnect) wait here and go out in order once it opens.
@@ -104,6 +122,7 @@ export function createTerminal({ onStatus, isShortcut = () => false }) {
 
   function connect(id) {
     if (id !== windowId) remember();
+    clearTimeout(retryTimer); // a pending retry would close the socket opened now
     socket?.close();
     if (id !== windowId && !held) pending = []; // keys typed for another window stay there
     held = false;
@@ -119,7 +138,9 @@ export function createTerminal({ onStatus, isShortcut = () => false }) {
     const size = `cols=${term.cols}&rows=${term.rows}`;
     const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/api/windows/${encodeURIComponent(id)}/tty?${size}`);
     ws.binaryType = 'arraybuffer';
+    const giveUp = setTimeout(() => ws.readyState === WebSocket.CONNECTING && ws.close(), CONNECT_MS);
     ws.onopen = () => {
+      clearTimeout(giveUp);
       failures = 0;
       onStatus('');
       fit.fit();
@@ -132,12 +153,20 @@ export function createTerminal({ onStatus, isShortcut = () => false }) {
     };
     ws.onmessage = (e) => term.write(new Uint8Array(e.data));
     ws.onclose = () => {
+      clearTimeout(giveUp);
       if (socket !== ws || windowId !== id) return; // superseded by another window
       onStatus('Reconnecting…');
       const wait = RETRY_MS[Math.min(failures++, RETRY_MS.length - 1)];
-      setTimeout(() => windowId === id && connect(id), wait);
+      retryTimer = setTimeout(() => windowId === id && connect(id), wait);
     };
     socket = ws;
+  }
+
+  // The host answers again: try now, not after the backoff (up to 8 s).
+  function retry() {
+    if (!windowId || socket?.readyState <= WebSocket.OPEN) return; // connecting (CONNECT_MS covers a hang) or open
+    failures = 0;
+    connect(windowId);
   }
 
   function setCtrl(on) {
@@ -179,9 +208,14 @@ export function createTerminal({ onStatus, isShortcut = () => false }) {
   wireWheel(term);
   wireUploads({ send, paste: (text) => term.paste(text), onStatus });
 
-  // After a tap, blur instead: a focused field (the finder, the terminal) keeps the soft keyboard up.
-  const focus = () => (byTouch() ? document.activeElement?.blur() : term.focus());
-  return { connect, hold, focus, get windowId() { return windowId; } };
+  // By touch, the soft keyboard stays as it was: down after tapping a tab, up
+  // (into the terminal) after typing in the finder.
+  const focus = () => (!byTouch() || document.activeElement?.matches('input, textarea')) && term.focus();
+  const setLook = (name) => {
+    term.options = LOOKS[name] ?? LOOKS.graphite;
+    fit.fit();
+  };
+  return { connect, hold, retry, focus, setLook, get windowId() { return windowId; } };
 }
 
 // tmux 3.5+ asks the terminal on attach: device attributes (DA1, DA2) and the
@@ -236,11 +270,11 @@ function wireClipboard(term) {
   });
 }
 
-// Local: ⌘-click (Ctrl-click off Apple) opens a URL, as in Ghostty. Plain-text
+// ⌘-click (Ctrl-click off Apple) opens a URL, as in Ghostty. Plain-text
 // URLs are found here; OSC 8 links arrive through linkHandler. Only http(s):
 // the text comes from programs in the terminal.
 const URL_RE = /https?:\/\/[^\s<>"'`]*[^\s<>"'`.,;:!?)\]}]/g;
-// On the host itself the host opens it, in the default browser (Arc), not in the
+// On the host itself the host opens it, in the default browser, not in the
 // Chrome app showing this page. Anywhere else (the phone) it opens right here.
 const ON_HOST = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
 function openLink(e, url) {
@@ -282,7 +316,7 @@ function cellText(line) {
   return { text, colOf };
 }
 
-// Local: scroll at Ghostty's pace (mouse-scroll-multiplier precision:1): one
+// Scroll at Ghostty's pace (mouse-scroll-multiplier precision:1): one
 // wheel step per line height of trackpad or finger travel. xterm sends at most
 // one step per event, whatever its size, and keeps 30% of events under 50px,
 // so a swipe barely moved and a fast flick sent only a few steps.
@@ -291,7 +325,7 @@ function wireWheel(term) {
   let replaying = false;
   term.attachCustomWheelEventHandler((e) => {
     if (replaying || e.deltaMode !== WheelEvent.DOM_DELTA_PIXEL || e.shiftKey) return true;
-    const cell = term.element.querySelector('.xterm-rows > div')?.getBoundingClientRect().height || LINE_PX;
+    const cell = term.element.querySelector('.xterm-rows > div')?.getBoundingClientRect().height || term.options.fontSize; // no row drawn yet
     carry += e.deltaY / cell;
     const steps = Math.trunc(carry);
     carry -= steps;
@@ -323,7 +357,7 @@ function screenText(term) {
   return text.trimEnd();
 }
 
-// Local: xterm's text can't be selected by touch (user-select: none, a drag
+// Xterm's text can't be selected by touch (user-select: none, a drag
 // scrolls, and tmux redraws it under the finger), so a hold opens a frozen copy
 // of the screen that the phone selects and copies natively.
 function wireCopySheet(term, onStatus) {

@@ -46,6 +46,13 @@ and tmux with it. Start `wsl.exe -d <distro> --exec dbus-launch true` from the
 Windows Startup folder or Task Scheduler to keep it alive. The first `tailscale serve` asks you to enable Serve for your tailnet in the
 admin console; that is a one-time click.
 
+On the Windows PC itself, open **http://localhost:7681**, not the `.ts.net`
+address. With Tailscale running inside WSL, only WSL is on the tailnet: Windows
+cannot resolve `*.ts.net` (the browser says `DNS_PROBE_FINISHED_NXDOMAIN`), while
+WSL forwards localhost to Windows. localhost pairs on its own, separately from the
+tailnet address, so run `remotty pair` and type the code once. Then install it as
+an app (below) from that tab.
+
 Pair a device:
 
 ```sh
@@ -78,7 +85,7 @@ remotty revoke ID   # unpair; its open terminals close within a second
   opens the finder above the list: type to filter by name (or a window
   number), arrows to move, `Enter` to open, and you are typing in that agent.
   None of these keys ever reach the shell. On a Mac, iPad or iPhone keyboard,
-  Alt is ⌥ Option and the hints say so (`⌥1`). As in Ghostty (this local build):
+  Alt is ⌥ Option and the hints say so (`⌥1`). As in Ghostty:
   ⌘T asks for a new agent's name (Enter creates it; empty, an unnamed one),
   ⌘W closes the open agent, ⌘E duplicates it, and ⌘Z reopens the last one
   closed, still running, for 5 minutes. If nothing is named exactly that, the last row
@@ -107,9 +114,13 @@ remotty revoke ID   # unpair; its open terminals close within a second
 - 🎤 records a voice note: tap to start (the button pulses), tap again to stop.
   It is uploaded like an attachment and its path is typed at the prompt; what
   reads the audio is up to whatever runs in the terminal.
-- **Restore** (under the agent list) reopens, one window each, every Claude Code
-  conversation touched in the last 2 hours that no process holds anymore — after
-  the machine or tmux went down. It runs `claude --resume <id>` in the
+- **Restore** (under the agent list; ↺ next to "+" on a phone) lists the Claude
+  Code conversations no process holds anymore that had a message in the last 24
+  hours — after the machine or tmux went down — and reopens the ones you tick,
+  one window each. Those that stopped in the last 2 hours come ticked. Each comes
+  back under the name its tab had, in the folder it was in (remotty notes both
+  every 30 s while the agent runs), else under its /rename or the title Claude
+  Code gave it. It runs `claude --resume <id>` in the
   conversation's own directory; change it with `-restore-command` (for example
   `-restore-command "claude --dangerously-skip-permissions --resume"`), or pass
   `-restore-command ""` to hide the button.
@@ -118,7 +129,8 @@ remotty revoke ID   # unpair; its open terminals close within a second
 - Ctrl+V pastes the viewer's clipboard, as in any desktop terminal. On a Mac, iPad
   or iPhone it is ⌘V, and Ctrl+V stays the terminal's own ^V, as in Terminal.app.
 - Drag a tab to reorder the agents (on a touch screen, hold it first so a swipe
-  still scrolls), or move the open one with Alt+Shift+↑/↓. The order is tmux's
+  still scrolls), or move the open one with Alt+Shift+↑/↓; dropped or moved next
+  to an agent in a folder, it joins that folder. The order is tmux's
   own window order, so ssh and every other device see it.
 - Drag the line between the agent list and the terminal to widen or narrow the
   list; double-click it to fit the longest name. Each browser keeps its own width.
@@ -132,14 +144,34 @@ remotty revoke ID   # unpair; its open terminals close within a second
   opens as plain text, where the phone's own selection works (hold a word, drag
   the handles, Copy). `Copy all` copies the whole screen, `Done` goes back.
 - The bottom bar has the keys a tablet keyboard lacks: Esc, Tab, Enter, a sticky Ctrl,
-  arrows, ^C and paste.
-- On a phone held upright the page fits the screen exactly: the agents become a
-  strip on top (the current one is underlined), `+` creates an agent and the
-  magnifier finds one (both open the finder over the whole row), and the keys sit in two rows with no sideways scrolling.
+  arrows, ^C and paste. **Settings** (under the agent list) picks which of them show
+  and in what order (drag ⠿, or Alt+↑/↓ on a key). It is per device: a touch screen
+  starts with every key, a mouse and keyboard with none. 🎤 and 📎 always show.
+  Settings also picks the theme, per device: Graphite (the default) or Ghostty
+  (its stock colours and JetBrains Mono 13, embedded).
+- ⌘-click a link (Ctrl-click off Apple) to open it: plain-text URLs and the OSC 8
+  links Claude Code prints. With the page open on the host itself, the host opens
+  it in its default browser (`open` on macOS, `xdg-open` on Linux); anywhere else,
+  or if the host cannot, it opens in this browser.
+- On a phone, hold a tab still to close it; `Undo` in the status line brings
+  the same agent back, still running, for 5 minutes.
+- On a phone, or a tablet held upright, the terminal takes the whole width and the
+  page fits the screen exactly. The top bar names the open agent, with its dot;
+  tap it for the agent list, the same as on a desktop, as a drawer: search,
+  folders, `⋯`, Restore and Settings. Picking an agent, tapping outside or Esc
+  closes it. `+` opens it on the finder, which creates. The keys sit in two rows
+  with no sideways scrolling.
   When the soft keyboard opens, the terminal shrinks to what is left, on iOS too
   (where Safari covers the page instead of resizing it). Tapping a field never
   zooms the page in.
-- Install it as an app from the browser menu for full screen.
+- Install it as an app for a window of its own, in the taskbar and Alt+Tab: in
+  Edge, `⋯` › Apps › Install this site as an app; in Chrome, `⋮` › Cast, save and
+  share › Install page as app. The app draws its own title bar, as desktop apps
+  do: the agent list reaches the top of the window, next to the window buttons.
+  An app installed before this keeps the browser's bar until the browser
+  refreshes its copy of the manifest; to get it now, uninstall the app (leave
+  "also clear data" unchecked, or it has to pair again) and install it again
+  from a tab. If the bar still shows, the `⌄` next to its `⋯` hides it.
 
 ### Let one agent drive the others (MCP)
 

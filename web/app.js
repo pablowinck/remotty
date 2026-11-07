@@ -2,7 +2,8 @@
 import { api, Unauthorized } from './features/api.js';
 import { showPairing } from './features/access.js';
 import { createSessions } from './features/sessions.js';
-import { wireSidebar } from './features/sidebar.js';
+import { wireDrawer, wireSidebar } from './features/sidebar.js';
+import { savedTheme, wireSettings } from './features/settings.js';
 import { createTerminal, keyLabel, shortcutOf } from './features/terminal.js';
 
 const status = document.getElementById('status');
@@ -43,17 +44,21 @@ async function main() {
   document.getElementById('app').hidden = false;
   followVisualViewport();
   wireSidebar();
+  const drawer = wireDrawer();
   document.querySelectorAll('#app kbd').forEach((k) => (k.textContent = keyLabel(k.textContent)));
   // App shortcuts. The terminal is told which keys are ours so it never sends
   // them to the shell (see attachCustomKeyEventHandler in terminal.js).
   const shortcuts = {
-    'Ctrl+Shift+K': () => sessions.focusFind(),
-    // Local, as in Ghostty: ⌘T asks for the new agent's name (Enter creates it),
-    // ⌘W closes the open agent, ⌘Z reopens the last one closed, ⌘E duplicates it.
-    'Meta+T': () => sessions.newAgent(),
+    'Ctrl+Shift+K': () => findAgent(),
+    // As in Ghostty: ⌘T names a new agent (Enter creates it), ⌘W closes the open
+    // one, ⌘Z reopens the last one closed, ⌘E duplicates the open one.
+    'Meta+T': () => {
+      drawer.open(); // on a narrow screen the finder lives in the drawer
+      sessions.newAgent();
+    },
     'Meta+W': () => sessions.closeCurrent(),
     'Meta+Z': () => sessions.reopenLast(),
-    'Meta+E': () => sessions.duplicateCurrent(), // local: the ⋯ menu's Duplicate
+    'Meta+E': () => sessions.duplicateCurrent(),
     'Alt+ArrowDown': () => sessions.step(1),
     'Alt+ArrowUp': () => sessions.step(-1),
     'Alt+Shift+ArrowDown': () => sessions.shift(1),
@@ -61,11 +66,9 @@ async function main() {
   };
   for (let n = 1; n <= 9; n++) shortcuts[`Alt+${n}`] = () => sessions.openIndex(n);
   const isShortcut = (e) => Boolean(shortcuts[shortcutOf(e)]);
-  // xterm measures its cell once, when it opens. Waiting for the embedded font
-  // (same origin, milliseconds) gives the PTY its final size from the start;
-  // measured on the fallback, it was resized again moments later.
-  await document.fonts?.load('13px "JetBrains Mono"').catch(() => {});
-  const terminal = createTerminal({ onStatus: setStatus, isShortcut });
+  const theme = savedTheme();
+  await showTheme(theme); // before xterm opens: it measures its cell once, on the font it has then
+  const terminal = createTerminal({ onStatus: setStatus, isShortcut, look: theme });
   const sessions = createSessions({
     onSelect: (id) => {
       document.getElementById('empty').hidden = Boolean(id);
@@ -78,6 +81,29 @@ async function main() {
     onStatus: setStatus,
     focusTerminal: () => terminal.focus(),
     holdKeys: () => terminal.hold(),
+    onOpen: () => drawer.close(),
+    // The host answers again: drop the poll's error, and the terminal need not wait out its backoff.
+    onReachable: () => {
+      setStatus('');
+      terminal.retry();
+    },
+  });
+  // On a narrow screen the finder lives in the drawer: open it first.
+  const findAgent = () => {
+    drawer.open();
+    sessions.focusFind();
+  };
+  document.getElementById('top-new').addEventListener('click', findAgent);
+  const settings = wireSettings({
+    onClose: () => terminal.focus(),
+    onTheme: async (name) => {
+      await showTheme(name);
+      terminal.setLook(name);
+    },
+  });
+  document.getElementById('open-settings').addEventListener('click', () => {
+    drawer.close();
+    settings.open();
   });
   document.addEventListener('keydown', (e) => {
     const action = shortcuts[shortcutOf(e)];
@@ -88,6 +114,14 @@ async function main() {
     }
   });
   sessions.start();
+}
+
+// The page's colours follow the theme (style.css). Ghostty's embedded font is
+// loaded first: measured on the fallback, the PTY was resized again moments later.
+async function showTheme(name) {
+  document.documentElement.dataset.theme = name;
+  document.querySelector('meta[name="theme-color"]').content = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+  if (name === 'ghostty') await document.fonts?.load('13px "JetBrains Mono"').catch(() => {});
 }
 
 main();

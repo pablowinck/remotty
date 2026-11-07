@@ -1,7 +1,7 @@
 import { test, expect, pair } from './fixtures.js';
 import { statSync } from 'node:fs';
 
-// Local: a phone that locks mid-note used to lose it. A Web Audio tone stands
+// A phone that locks mid-note used to lose it. A Web Audio tone stands
 // in for the mic (Chromium's fake device hangs on macOS), and a counting stub
 // for the Wake Lock, which headless Chromium would refuse anyway.
 test.beforeEach(async ({ page }) => {
@@ -58,7 +58,7 @@ test('the phone locking mid-note sends what was recorded', async ({ page, host }
   expect((await lock(page)).released).toBe(1);
 });
 
-// Local: a Home Screen app on iOS can get a mic that dies at once. Six notes in
+// A Home Screen app on iOS can get a mic that dies at once. Six notes in
 // a row came out empty (2026-09-30) and each empty path was typed at the prompt.
 test('a microphone the phone kills at once types nothing and says why', async ({ page, host }) => {
   await pair(page, host);

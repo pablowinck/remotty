@@ -98,3 +98,50 @@ test('the reconnect loop stops hammering while the host is down', async ({ page,
   expect(attempts).toBeGreaterThan(0); // anchor: it does retry
   expect(attempts).toBeLessThanOrEqual(4);
 });
+
+// A phone back from sleep can leave the handshake hanging with no error for
+// minutes. The page gives up on it and retries instead of saying Reconnecting forever.
+test('a handshake that hangs is retried, without switching agents', async ({ page, host }) => {
+  let attempts = 0;
+  await page.routeWebSocket(/\/tty(\?|$)/, async (ws) => {
+    if (attempts++ === 1) return new Promise(() => {}); // the first reconnect never answers
+    ws.connectToServer();
+  });
+  await pair(page, host);
+  const port = new URL(host.origin).port;
+  host.proc.kill();
+  await expect(page.locator('#status')).toContainText(/Reconnecting/i);
+  const again = await startHost(host.dir, ['-addr', `127.0.0.1:${port}`, '-origin', host.origin], { reuseTmux: true });
+  host.proc = again.proc;
+  await expect(page.locator('#status')).toBeEmpty({ timeout: 15_000 });
+  await typeInTerminal(page, 'echo volta-$((4+4))\n');
+  await expect(page.locator('#terminal .xterm-rows')).toContainText('volta-8');
+  expect(attempts).toBeGreaterThanOrEqual(3); // anchor: the hung one was really held
+});
+
+// The list's poll and the terminal fail apart. An error from a poll that failed
+// once must go away when the next one works, not stay until you switch agents.
+test('an error from one failed poll clears once the host answers again', async ({ page, host }) => {
+  await pair(page, host);
+  let fail = true;
+  await page.route(/\/api\/windows$/, (r) => (fail ? r.abort('connectionrefused') : r.continue()));
+  await expect(page.locator('#status')).not.toBeEmpty();
+  fail = false;
+  await expect(page.locator('#status')).toBeEmpty({ timeout: 5000 });
+});
+
+// After a long outage the terminal waits 8 s between tries. Once the list sees
+// the host again, the terminal tries at once instead of waiting that out.
+test('once the host is back, the terminal does not wait out its backoff', async ({ page, host }) => {
+  test.setTimeout(45_000);
+  await pair(page, host);
+  const port = new URL(host.origin).port;
+  host.proc.kill();
+  await page.waitForTimeout(10_000); // past 0.5+1+2+4 s: the next try is 8 s away
+  const again = await startHost(host.dir, ['-addr', `127.0.0.1:${port}`, '-origin', host.origin], { reuseTmux: true });
+  host.proc = again.proc;
+  const back = Date.now();
+  await typeInTerminal(page, 'echo cedo-$((3+3))\n'); // queued until the terminal is connected
+  await expect(page.locator('#terminal .xterm-rows')).toContainText('cedo-6', { timeout: 10_000 });
+  expect(Date.now() - back).toBeLessThan(3500); // one poll (2 s) and a handshake
+});

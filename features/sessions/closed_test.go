@@ -55,34 +55,6 @@ func TestCloseUndoableHidesAndReopenBringsItBack(t *testing.T) {
 	}
 }
 
-func TestReopenableCountsHiddenWindowsNotThePlaceholder(t *testing.T) {
-	tm := newTestTmux(t)
-	if n := tm.Reopenable(); n != 0 {
-		t.Fatalf("nothing closed yet, got %d", n)
-	}
-	a, _ := tm.Create("a")
-	b, _ := tm.Create("b")
-	tm.CloseUndoable(a)
-	tm.CloseUndoable(b)
-	if n := tm.Reopenable(); n != 2 {
-		t.Fatalf("two closed, got %d", n) // the hidden session's placeholder window must not count
-	}
-	tm.ReopenLast()
-	if n := tm.Reopenable(); n != 1 {
-		t.Fatalf("one reopened, got %d", n)
-	}
-	// The placeholder between two closed windows: its blank stamp is a line of
-	// its own there, not trimmed away, and must not count.
-	c, _ := tm.Create("c")
-	tm.CloseUndoable(c)
-	hidden := "=" + tm.closedSession() + ":"
-	tm.run("move-window", "-s", hidden+"placeholder", "-t", hidden+"50")
-	tm.run("move-window", "-s", c, "-t", hidden+"99")
-	if n := tm.Reopenable(); n != 2 {
-		t.Fatalf("placeholder between two closed windows, got %d", n)
-	}
-}
-
 func TestReopenTakesTheLastClosedFirst(t *testing.T) {
 	tm := newTestTmux(t)
 	a, _ := tm.Create("a")

@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-// Local: a file over MaxBytes dropped on the host is not copied; its own path is
+// A file over MaxBytes dropped on the host is not copied; its own path is
 // found by name and exact size. The search runs in the tmux server, beside the
 // shells: macOS keeps the launchd-started remotty out of Downloads and Desktop.
 func FindRoute(mux *http.ServeMux, wrap func(http.HandlerFunc) http.HandlerFunc, socket string) {

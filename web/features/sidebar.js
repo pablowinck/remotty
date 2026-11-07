@@ -36,6 +36,24 @@ export function wireSidebar() {
   });
 }
 
+// Upright or narrow, the list is a drawer over the terminal (style.css), opened
+// from the top bar. Picking an agent, the scrim or Esc closes it. On a wide
+// screen the class does nothing: the list is always there.
+export function wireDrawer() {
+  const toggle = document.getElementById('menu');
+  const set = (on) => {
+    document.body.classList.toggle('drawer-open', on);
+    toggle.setAttribute('aria-expanded', String(on));
+  };
+  const isOpen = () => document.body.classList.contains('drawer-open');
+  toggle.addEventListener('click', () => set(!isOpen()));
+  document.getElementById('scrim').addEventListener('click', () => set(false));
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && isOpen()) set(false);
+  });
+  return { open: () => set(true), close: () => set(false) };
+}
+
 // The width at which no name is cut: each row keeps its chips and padding, and
 // its name gets the width of its whole text. A Range measures the text even
 // where the ellipsis hides it.

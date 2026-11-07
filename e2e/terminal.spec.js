@@ -115,7 +115,7 @@ test('tmux gets the size the browser measured, and follows it on resize', async 
   await expect.poll(() => clientSize() === `${sizes.at(-1).cols}x${sizes.at(-1).rows}`).toBe(true);
 });
 
-// Local: scroll at Ghostty's pace, one wheel step per line height of travel.
+// Scroll at Ghostty's pace, one wheel step per line height of travel.
 // xterm sent at most one step per event and kept 30% of small ones, so a
 // swipe barely moved; asserted from both sides, so it cannot creep back or jump.
 test('a trackpad swipe sends one wheel step per line of travel', async ({ page, host }) => {
@@ -193,7 +193,7 @@ test('a finger drag reaches a mouse-reporting app as one wheel per row', async (
   expect(wheels()).toBeLessThanOrEqual(Math.ceil(travelled) + 1);
 });
 
-// Local: ⌘-click (Ctrl-click off Apple) on a URL opens it, as in Ghostty, even
+// ⌘-click (Ctrl-click off Apple) on a URL opens it, as in Ghostty, even
 // with tmux mouse on. Plain text and OSC 8 links (what Claude Code prints).
 test('a modifier-click on a URL opens it in the default browser', async ({ page, host }) => {
   host.tmux('set-option', '-g', 'mouse', 'on');
@@ -221,7 +221,7 @@ test('a modifier-click on a URL opens it in the default browser', async ({ page,
   await clickAt('x-https', 8, false);
   await page.waitForTimeout(300);
   expect(host.opened()).toEqual([]); // a plain click still goes to tmux
-  // On the host, the host opens it in the default browser (Arc), not this page's browser.
+  // On the host, the host opens it in the default browser, not this page's browser.
   await clickAt('x-https', 8, true);
   await expect.poll(() => host.opened()).toEqual(['https://example.com/a?b=15']);
   await clickAt('veja-aqui', 3, true);

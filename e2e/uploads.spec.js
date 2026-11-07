@@ -31,7 +31,7 @@ test('the path is pasted to a program that takes bracketed paste', async ({ page
   await expect(page.locator('#terminal .xterm-rows')).toContainText(pasted);
 });
 
-// Local: a file over 50 MB is not copied. The host finds it by name and size and
+// A file over 50 MB is not copied. The host finds it by name and size and
 // pastes its own path, escaped as a desktop terminal does.
 test('a file too big to upload is pasted where it already is on the host', async ({ page, host }) => {
   await pair(page, host);

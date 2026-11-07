@@ -194,6 +194,30 @@ func TestCreateNestedFolderKeepsTopLevelNamesake(t *testing.T) {
 	}
 }
 
+// A create that fails on a missing folder leaves nothing behind, or a retrying
+// agent piles up orphan windows and folders.
+func TestCreateInMissingFolderLeavesNothing(t *testing.T) {
+	b := newToolbox(t)
+	got := session(t, b,
+		call(1, "create_folder", `{"name":"jobs"}`),
+		call(2, "create_agent", `{"name":"x","folder":"nope"}`),
+		call(3, "create_folder", `{"name":"seo","parent":"nope"}`),
+		call(4, "list_agents", `{}`),
+	)
+	for _, r := range got[1:3] {
+		if !r.Result.IsError || !strings.Contains(text(t, r), "no such folder") {
+			t.Errorf("call %d = %+v, want a no such folder error", r.ID, r)
+		}
+	}
+	list := text(t, got[3])
+	if !strings.Contains(list, `"id":"@0"`) || !strings.Contains(list, `"folders":["jobs"]`) {
+		t.Errorf("want only @0 and jobs: %s", list)
+	}
+	if strings.Contains(list, `"name":"x"`) {
+		t.Errorf("orphan window x left behind: %s", list)
+	}
+}
+
 func TestListMarksTheCallersOwnWindow(t *testing.T) {
 	b := newToolbox(t)
 	other, _ := b.Tmux.Create("outro")

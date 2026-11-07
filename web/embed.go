@@ -4,28 +4,14 @@ package web
 
 import (
 	"embed"
-	"io/fs"
 	"net/http"
 )
 
 //go:embed index.html app.js style.css manifest.json icon.svg search.svg attach.svg mic.svg plus.svg menu.svg folder.svg restore.svg settings.svg features lib
 var files embed.FS
 
-// Handler serves the UI. Unknown paths fall back to index.html so a reload on
-// any client-side state still lands on the app.
+// Handler serves the UI. There are no client-side routes (pairing rides in the
+// fragment), so an unknown path is a 404: the UI hides Restore on a 404 from /api/restore.
 func Handler() http.Handler {
-	static := http.FileServerFS(files)
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if _, err := fs.Stat(files, trim(r.URL.Path)); err != nil {
-			r.URL.Path = "/"
-		}
-		static.ServeHTTP(w, r)
-	})
-}
-
-func trim(p string) string {
-	if p == "/" || p == "" {
-		return "index.html"
-	}
-	return p[1:]
+	return http.FileServerFS(files)
 }

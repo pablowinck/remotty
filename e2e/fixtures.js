@@ -84,11 +84,14 @@ function stop(proc) {
 }
 
 export const test = base.extend({
-  host: async ({}, use) => {
+  // Extra `remotty serve` flags for one file or describe: test.use({ hostArgs: [...] }).
+  hostArgs: [[], { option: true }],
+
+  host: async ({ hostArgs }, use) => {
     // realpath: on macOS the temp dir is under /var, a symlink tmux reports as /private/var.
     const dir = realpathSync(mkdtempSync(join(tmpdir(), 'remotty-e2e-')));
     // The UI is reached as http://localhost:PORT, so that is the allowed origin.
-    const host = await startHost(dir, ['-origin', 'http://localhost:0']);
+    const host = await startHost(dir, ['-origin', 'http://localhost:0', ...hostArgs]);
     await use(host);
     // kill() only sends the signal: wait for the exit, or the host may still be
     // writing its state (device renewal) while the directory is being removed.

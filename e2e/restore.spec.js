@@ -72,3 +72,16 @@ test.describe('on a phone', () => {
     expect(host.windows().map((x) => x.name)).toContain('Crashes no FIFA');
   });
 });
+
+test.describe('with -restore-command ""', () => {
+  test.use({ hostArgs: ['-restore-command', ''] });
+
+  test('Restore hides itself, with no JSON error', async ({ page, host }) => {
+    await pair(page, host);
+    await expect(page.locator('#tab-list .name').first()).toBeVisible(); // anchor: the app is up and talking to the host
+    const button = page.getByRole('button', { name: 'Restore' });
+    await button.click();
+    await expect(page.locator('#restore')).toBeHidden();
+    await expect(page.locator('#status')).not.toContainText('JSON');
+  });
+});

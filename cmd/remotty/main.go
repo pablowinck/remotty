@@ -21,7 +21,7 @@ const usage = `remotty — your tmux windows in a browser tab.
   remotty serve [flags]      run the server (see remotty serve -h)
   remotty install [flags]    run serve as a login service (systemd on Linux, launchd on macOS), restarted on crash
   remotty pair [--json]      print a one-time pairing code (valid 5 min)
-  remotty devices            list paired devices (paired until revoked)
+  remotty devices            list paired devices (expiry moves 30 days ahead on each use)
   remotty revoke ID|--all    unpair a device, closing its open terminals
   remotty mcp [flags]        MCP server on stdio: lets an agent drive the other windows (claude mcp add remotty -- remotty mcp)
 `
@@ -109,9 +109,9 @@ func devices(store access.Store, out io.Writer) error {
 		return nil
 	}
 	w := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "ID\tNAME\tPAIRED")
+	fmt.Fprintln(w, "ID\tNAME\tPAIRED\tEXPIRES IF UNUSED")
 	for _, d := range list {
-		fmt.Fprintf(w, "%s\t%s\t%s\n", d.ID, d.Name, d.Created.Format("2006-01-02 15:04"))
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", d.ID, d.Name, d.Created.Format("2006-01-02 15:04"), d.Expires.Format("2006-01-02"))
 	}
 	return w.Flush()
 }

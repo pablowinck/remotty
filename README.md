@@ -59,7 +59,8 @@ Point the phone or tablet camera at the QR code and it pairs by itself. You can
 also open the link, or type the code. The code
 travels in the URL fragment, which browsers never send to a server.
 
-A paired device stays paired until you revoke it, however long it goes unused.
+A paired device stays paired as long as you use it: each use pushes its expiry
+30 days ahead. Only a device left unused for 30 days has to pair again.
 
 ```sh
 remotty devices     # what is paired

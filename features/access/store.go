@@ -23,18 +23,25 @@ import (
 const (
 	codeTTL     = 5 * time.Minute
 	maxAttempts = 5
+	// A device expires after this long WITHOUT use. Every use pushes the expiry
+	// forward, so a tablet in regular use stays paired indefinitely.
+	deviceTTL = 30 * 24 * time.Hour
+	// Renewal rewrites devices.json at most once per this interval, not on
+	// every request (30 tabs poll every 2 s).
+	renewEvery = 24 * time.Hour
 )
 
 // ErrInvalidCode covers wrong, expired, used and exhausted codes alike, so a
 // guesser learns nothing about which one it hit.
 var ErrInvalidCode = errors.New("invalid or expired pairing code")
 
-// Device is one paired browser. It stays paired until revoked.
+// Device is one paired browser.
 type Device struct {
 	ID        string    `json:"id"`
 	Name      string    `json:"name"`
 	TokenHash string    `json:"token_hash"`
 	Created   time.Time `json:"created"`
+	Expires   time.Time `json:"expires"`
 }
 
 type pendingCode struct {
@@ -115,7 +122,7 @@ func (s Store) consumeCode(code string) error {
 
 func (s Store) addDevice(name string) (string, Device, error) {
 	token := rand.Text()
-	dev := Device{ID: rand.Text()[:6], Name: CleanName(name), TokenHash: hash(token), Created: s.now()}
+	dev := Device{ID: rand.Text()[:6], Name: CleanName(name), TokenHash: hash(token), Created: s.now(), Expires: s.now().Add(deviceTTL)}
 	devices, err := s.readDevices()
 	if err != nil {
 		return "", Device{}, err
@@ -146,21 +153,46 @@ func (s Store) Lookup(token string) (Device, bool) {
 	}
 	want := hash(token)
 	for _, d := range devices {
-		if d.TokenHash == want {
-			return d, true
+		if d.TokenHash == want && s.now().Before(d.Expires) {
+			return s.renew(d), true
 		}
 	}
 	return Device{}, false
 }
 
-// Active reports whether a device is still paired.
+// renew slides a device's expiry forward from now. It writes only once a day
+// and treats a failed write as harmless: the device stays valid until its
+// current expiry either way.
+func (s Store) renew(d Device) Device {
+	target := s.now().Add(deviceTTL)
+	if target.Sub(d.Expires) < renewEvery {
+		return d
+	}
+	s.locked(func() error {
+		devices, err := s.readDevices()
+		if err != nil {
+			return err
+		}
+		for i := range devices {
+			if devices[i].ID == d.ID { // re-read under the lock: it may have been revoked meanwhile
+				devices[i].Expires = target
+				d.Expires = target
+				return writeJSON(s.path("devices.json"), devices)
+			}
+		}
+		return nil
+	})
+	return d
+}
+
+// Active reports whether a device is still paired and unexpired.
 func (s Store) Active(id string) bool {
 	devices, err := s.readDevices()
 	if err != nil {
 		return false // fail closed: an unreadable store must not keep sockets open
 	}
 	for _, d := range devices {
-		if d.ID == id {
+		if d.ID == id && s.now().Before(d.Expires) {
 			return true
 		}
 	}

@@ -305,7 +305,7 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
     li.classList.toggle('in-folder', !query() && folderOf(w) !== '');
     li.style.setProperty('--depth', query() ? 0 : depthOf(folderOf(w)));
     li.setAttribute('aria-current', String(w.id === current));
-    li.title = 'Double-tap to rename';
+    li.title = 'Double-click to rename';
 
     const index = document.createElement('span');
     index.className = 'index';
@@ -521,7 +521,7 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
   function showMenu(w, anchor) {
     const moveTo = menuItem('Move to…', () => showFolders(w, anchor), true);
     moveTo.disabled = !folders.length; // nowhere to move to yet
-    menu.replaceChildren(menuItem('Duplicate', () => duplicate(w.id)), moveTo, menuItem('Close', () => remove(w)));
+    menu.replaceChildren(menuItem('Rename', () => rename(w)), menuItem('Duplicate', () => duplicate(w.id)), moveTo, menuItem('Close', () => remove(w)));
     menu.showPopover();
     placeMenu(anchor);
     menu.querySelector('button:not(:disabled)').focus();

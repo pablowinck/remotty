@@ -91,7 +91,8 @@ remotty revoke ID   # unpair; its open terminals close within a second
   closed, still running, for 5 minutes. If nothing is named exactly that, the last row
   creates a new agent with the name you typed; `Enter` on an empty finder
   creates an unnamed one. `Esc` goes back to the terminal. `+` opens the finder.
-- Double-tap a tab to rename it. Its `⋯` menu closes it, moves it to a folder, or
+- Double-click a tab to rename it. Its `⋯` menu renames it (the way on a phone, where a tap
+  opens the agent), closes it, moves it to a folder, or
   duplicates it: a new agent right below, in the same folder and directory, running
   again what runs there (`claude --dangerously-skip-permissions`, say) with the same
   arguments, and a shell when it is back at the prompt.

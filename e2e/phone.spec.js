@@ -117,6 +117,18 @@ test('tapping another tab leaves the soft keyboard closed until the terminal is 
   await expect.poll(() => host.capture(two.id)).toContain('no-dois-2');
 });
 
+// A tap opens the agent, so a double-tap never reaches it: renaming goes through ⋯.
+test('an agent can be renamed by touch alone', async ({ page, host }) => {
+  agents(host, 1);
+  await pair(page, host);
+  await page.getByRole('button', { name: 'Agents' }).tap();
+  await page.getByRole('button', { name: 'Options for agente-com-nome-1' }).tap();
+  page.once('dialog', (d) => d.accept('renomeado-por-toque'));
+  await page.getByRole('menuitem', { name: 'Rename' }).tap();
+  await expect(page.locator('#tab-list li .name', { hasText: 'renomeado-por-toque' })).toHaveCount(1);
+  expect(host.windows().map((w) => w.name)).toContain('renomeado-por-toque');
+});
+
 // Creating an agent on a phone must be findable without knowing a shortcut:
 // a visible "+" and a finder that says it creates.
 test('a visible + creates an agent by touch alone', async ({ page, host }) => {

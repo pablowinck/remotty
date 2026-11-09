@@ -234,3 +234,17 @@ test('a modifier-click on a URL opens it in the default browser', async ({ page,
   await expect.poll(() => page.evaluate(() => window.__opened)).toEqual(['https://example.com/a?b=15']);
   expect(host.opened()).toHaveLength(2);
 });
+
+test('a dropped xterm stylesheet is fetched again before the terminal opens', async ({ page, host }) => {
+  let tries = 0;
+  await page.route('**/lib/xterm/xterm.css', (r) => (++tries === 1 ? r.abort() : r.continue()));
+  await pair(page, host);
+  await typeInTerminal(page, 'echo estilo-$((6*7))\n');
+  await expect(page.locator('#terminal .xterm-rows')).toContainText('estilo-42'); // anchor: the terminal runs
+  expect(tries).toBe(2);
+  // Unstyled, xterm's measuring glyphs show and its rows run under the key bar.
+  await expect(page.locator('.xterm-char-measure-element').first()).toHaveCSS('visibility', 'hidden');
+  const rows = await page.locator('#terminal .xterm-rows').boundingBox();
+  const stage = await page.locator('#stage').boundingBox();
+  expect(rows.y + rows.height).toBeLessThanOrEqual(stage.y + stage.height);
+});

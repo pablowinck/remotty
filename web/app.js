@@ -68,6 +68,7 @@ async function main() {
   const isShortcut = (e) => Boolean(shortcuts[shortcutOf(e)]);
   const theme = savedTheme();
   await showTheme(theme); // before xterm opens: it measures its cell once, on the font it has then
+  await styled(document.querySelector('link[href="/lib/xterm/xterm.css"]'));
   const terminal = createTerminal({ onStatus: setStatus, isShortcut, look: theme });
   const sessions = createSessions({
     onSelect: (id) => {
@@ -114,6 +115,27 @@ async function main() {
     }
   });
   sessions.start();
+}
+
+// A stylesheet whose request dropped (a tablet on a flaky link did) leaves xterm
+// unstyled: its measuring glyphs show on top and its rows run under the keys.
+// One more try before the terminal opens.
+async function styled(link) {
+  if (loaded(link.sheet)) return;
+  const again = link.cloneNode();
+  await new Promise((done) => {
+    again.onload = again.onerror = done;
+    link.replaceWith(again);
+  });
+}
+
+// A failed load still has a sheet, whose rules throw instead.
+function loaded(sheet) {
+  try {
+    return sheet.cssRules.length > 0;
+  } catch {
+    return false;
+  }
 }
 
 // The page's colours follow the theme (style.css). Ghostty's embedded font is

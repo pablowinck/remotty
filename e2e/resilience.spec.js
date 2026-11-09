@@ -67,7 +67,7 @@ test('keys typed before the terminal connects are not lost', async ({ page, host
   });
   await pair(page, host);
   slow = true;
-  await page.getByRole('button', { name: 'New agent' }).click();
+  await page.locator('#find').click();
   await page.keyboard.type('lento');
   await page.keyboard.press('Enter');
   await typeInTerminal(page, 'echo primeira-$((1+1)); echo segunda-$((2+2))\n');

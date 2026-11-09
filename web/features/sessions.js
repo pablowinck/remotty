@@ -656,13 +656,6 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
     if (document.activeElement !== find) stopNaming(); // clicked away: back to finding
     render(); // drop the highlight
   }));
-  // Tapping "+" must not blur the finder on the way (the tap lands on the button,
-  // which would steal focus), so focus it after the button has taken the click.
-  document.getElementById('new-tab').addEventListener('click', () => {
-    find.focus();
-    render();
-  });
-  document.getElementById('new-tab').addEventListener('pointerdown', (e) => e.preventDefault());
 
   // Restore: after a crash, pick which stopped Claude Code conversations come back.
   // The host answers 404 when it runs without -restore-command; then the button goes.

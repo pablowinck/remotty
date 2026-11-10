@@ -90,7 +90,7 @@ remotty revoke ID   # unpair; its open terminals close within a second
   ⌘W closes the open agent, ⌘E duplicates it, and ⌘Z reopens the last one
   closed, still running, for 5 minutes. If nothing is named exactly that, the last row
   creates a new agent with the name you typed; `Enter` on an empty finder
-  creates an unnamed one. `Esc` goes back to the terminal. `+` opens the finder.
+  creates an unnamed one. `Esc` goes back to the terminal.
 - Double-click a tab to rename it. Its `⋯` menu renames it (the way on a phone, where a tap
   opens the agent), closes it, moves it to a folder, or
   duplicates it: a new agent right below, in the same folder and directory, running

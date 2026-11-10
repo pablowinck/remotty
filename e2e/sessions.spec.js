@@ -6,8 +6,8 @@ test('creates, switches, renames and closes agent tabs', async ({ page, host }) 
   const tabs = page.locator('#tab-list li');
   await expect(tabs).toHaveCount(1);
 
-  // "+" opens the finder; typing a new name and Enter creates it.
-  await page.getByRole('button', { name: 'New agent' }).click();
+  // Typing a new name in the finder and Enter creates it.
+  await page.locator('#find').click();
   await page.keyboard.type('revisor');
   await page.keyboard.press('Enter');
   await expect(tabs).toHaveCount(2);
@@ -115,7 +115,7 @@ test('folders group agents, collapse, and live in tmux', async ({ page, host }) 
   await expect(row('faturas')).toBeVisible();
 
   // Typing then Enter on the finder's "New folder" row also creates one.
-  await page.getByRole('button', { name: 'New agent' }).click();
+  await page.locator('#find').click();
   await page.keyboard.type('infra');
   await page.locator('#tab-list li.create-folder', { hasText: 'New folder "infra"' }).click();
   await expect(page.locator('#tab-list li.folder', { hasText: 'infra' })).toBeVisible();

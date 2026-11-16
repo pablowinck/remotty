@@ -224,7 +224,7 @@ func TestListMarksTheCallersOwnWindow(t *testing.T) {
 	pane, _ := exec.Command("tmux", "-S", b.Tmux.Socket, "display-message", "-p", "-t", other, "#{pane_id}").Output()
 	b.Self = b.Tmux.WindowOf(strings.TrimSpace(string(pane)))
 	list := text(t, session(t, b, call(1, "list_agents", `{}`))[0])
-	if !strings.Contains(list, `"id":"`+other+`","index":2,"name":"outro","active":false,"bell":false,"activity":false,"silence":false,"folder":"","self":true`) {
+	if !strings.Contains(list, `"id":"`+other+`","index":2,"name":"outro","active":false,"bell":false,"activity":false,"silence":false,"folder":"","pinned":false,"self":true`) {
 		t.Fatalf("own window %s not marked self: %s", other, list)
 	}
 	if strings.Count(list, `"self":true`) != 1 {

@@ -105,15 +105,15 @@ func TestRejectsBadNames(t *testing.T) {
 
 func TestParseWindows(t *testing.T) {
 	// tmux escapes a tab in window_name; one in the folder option arrives raw.
-	out := "@1\t1\t1\t0\t0\t0\tbash\t\n@7\t2\t0\t1\t1\t1\tnome\\tcom tab\tbill\ting\n"
+	out := "@1\t1\t1\t0\t0\t1\t\tbash\t\n@7\t2\t0\t1\t1\t1\t1\tnome\\tcom tab\tbill\ting\n"
 	got := parseWindows(out)
 	if len(got) != 2 {
 		t.Fatalf("want 2 windows, got %d", len(got))
 	}
-	if !got[0].Active || got[0].Bell || got[0].Name != "bash" || got[0].Folder != "" {
+	if !got[0].Active || got[0].Bell || got[0].Name != "bash" || got[0].Folder != "" || got[0].Pinned {
 		t.Errorf("window 1 flags wrong: %+v", got[0])
 	}
-	if got[1].ID != "@7" || !got[1].Bell || !got[1].Silence || got[1].Name != `nome\tcom tab` || got[1].Folder != "bill\ting" {
+	if got[1].ID != "@7" || !got[1].Bell || !got[1].Silence || got[1].Name != `nome\tcom tab` || got[1].Folder != "bill\ting" || !got[1].Pinned {
 		t.Errorf("window 2 parsed wrong: %+v", got[1])
 	}
 }
@@ -299,6 +299,38 @@ func TestFolders(t *testing.T) {
 		t.Fatalf("clear folder: %v, still %q", err, folderOf(t, tm, id))
 	}
 	if err := tm.SetFolder("@999", "billing"); err != ErrNoWindow {
+		t.Fatalf("missing window: want ErrNoWindow, got %v", err)
+	}
+}
+
+func TestPinned(t *testing.T) {
+	tm := newTestTmux(t)
+	id, _ := tm.Create("api")
+	tm.AddFolder("billing")
+	tm.SetFolder(id, "billing")
+	pinned := func() Window {
+		list, _ := tm.List()
+		for _, w := range list {
+			if w.ID == id {
+				return w
+			}
+		}
+		t.Fatalf("window %s not listed", id)
+		return Window{}
+	}
+	if pinned().Pinned {
+		t.Fatal("a new window starts pinned")
+	}
+	if err := tm.SetPinned(id, true); err != nil || !pinned().Pinned || pinned().Folder != "billing" {
+		t.Fatalf("pin: %v, got %+v", err, pinned())
+	}
+	if err := tm.SetPinned(id, false); err != nil || pinned().Pinned || pinned().Folder != "billing" {
+		t.Fatalf("unpin: %v, got %+v", err, pinned())
+	}
+	if err := tm.SetPinned("x", true); err != ErrBadWindowID {
+		t.Fatalf("bad id: want ErrBadWindowID, got %v", err)
+	}
+	if err := tm.SetPinned("@999", true); err != ErrNoWindow {
 		t.Fatalf("missing window: want ErrNoWindow, got %v", err)
 	}
 }

@@ -17,6 +17,7 @@ func (t Tmux) Routes(mux *http.ServeMux, wrap func(http.HandlerFunc) http.Handle
 	mux.HandleFunc("POST /api/windows/{id}/move", wrap(t.handleMove))
 	mux.HandleFunc("POST /api/windows/{id}/duplicate", wrap(t.handleDuplicate))
 	mux.HandleFunc("PUT /api/windows/{id}/folder", wrap(t.handleSetFolder))
+	mux.HandleFunc("PUT /api/windows/{id}/pinned", wrap(t.handleSetPinned))
 	mux.HandleFunc("GET /api/folders", wrap(t.handleFolders))
 	mux.HandleFunc("POST /api/folders", wrap(t.handleAddFolder))
 	mux.HandleFunc("PATCH /api/folders/{name}", wrap(t.handleRenameFolder))
@@ -125,6 +126,15 @@ func (t Tmux) handleNestFolder(w http.ResponseWriter, r *http.Request) {
 func (t Tmux) handleSetFolder(w http.ResponseWriter, r *http.Request) {
 	var req nameBody
 	if decode(w, r, &req) && respond(w, t.SetFolder(r.PathValue("id"), req.Name)) {
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+func (t Tmux) handleSetPinned(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Pinned bool `json:"pinned"`
+	}
+	if decode(w, r, &req) && respond(w, t.SetPinned(r.PathValue("id"), req.Pinned)) {
 		w.WriteHeader(http.StatusNoContent)
 	}
 }

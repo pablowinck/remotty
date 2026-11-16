@@ -105,14 +105,16 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
   const query = () => find.value.trim();
   // A window tagged with a folder this server no longer lists counts as loose.
   const folderOf = (w) => (folders.includes(w.folder) ? w.folder : '');
-  const inFolder = (f) => windows.filter((w) => folderOf(w) === f);
-  const inSubtree = (f) => windows.filter((w) => within(folderOf(w), f));
+  // A pinned window shows only above the folders, though it keeps its folder for when it is unpinned.
+  const pinned = () => windows.filter((w) => w.pinned);
+  const inFolder = (f) => windows.filter((w) => !w.pinned && folderOf(w) === f);
+  const inSubtree = (f) => windows.filter((w) => !w.pinned && within(folderOf(w), f));
   // Hidden when it, or any folder around it, is collapsed.
   const folded = (f) => [...collapsed].some((c) => within(f, c));
   const ancestorFolded = (f) => folded(parentOf(f)) && parentOf(f) !== '';
 
-  // Display order: each folder with its windows, in creation order, then the loose ones.
-  const ordered = () => [...folders.flatMap(inFolder), ...inFolder('')];
+  // Display order: the pinned ones, each folder with its windows, in creation order, then the loose ones.
+  const ordered = () => [...pinned(), ...folders.flatMap(inFolder), ...inFolder('')];
 
   // A number matches the window index exactly; anything else matches the name.
   function visible() {
@@ -139,7 +141,8 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
   function tree() {
     const shown = (f) => inFolder(f).filter((w) => !folded(f) || w.id === current);
     const header = (f) => (ancestorFolded(f) ? [] : [{ header: f }]);
-    return [...folders.flatMap((f) => [...header(f), ...shown(f)]), ...inFolder('')];
+    const top = pinned().length ? [{ pinnedHeader: true }, ...pinned()] : [];
+    return [...top, ...folders.flatMap((f) => [...header(f), ...shown(f)]), ...inFolder('')];
   }
 
   // Alt+1..9 follow the list as shown, top to bottom: collapsing a folder renumbers
@@ -173,6 +176,7 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
     if (row.create !== undefined) return createRow('create', row.create ? `+ New agent "${row.create}"` : '+ New agent', () => create(row.create));
     if (row.createFolder !== undefined) return createRow('create-folder', `+ New folder "${row.createFolder}"`, () => addFolder(row.createFolder));
     if (row.header !== undefined) return folderRow(row.header);
+    if (row.pinnedHeader) return pinnedHeader();
     return item(row);
   }
 
@@ -181,6 +185,13 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
     li.className = className;
     li.textContent = label;
     li.addEventListener('click', run);
+    return li;
+  }
+
+  function pinnedHeader() {
+    const li = document.createElement('li');
+    li.className = 'pinned-header';
+    li.textContent = 'Pinned';
     return li;
   }
 
@@ -302,8 +313,10 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
     li.dataset.id = w.id;
     li.dataset.state = stateOf(w);
     li.dataset.folder = folderOf(w);
-    li.classList.toggle('in-folder', !query() && folderOf(w) !== '');
-    li.style.setProperty('--depth', query() ? 0 : depthOf(folderOf(w)));
+    li.dataset.pinned = String(w.pinned);
+    const indent = !query() && !w.pinned && folderOf(w) !== '';
+    li.classList.toggle('in-folder', indent);
+    li.style.setProperty('--depth', indent ? depthOf(folderOf(w)) : 0);
     li.setAttribute('aria-current', String(w.id === current));
     li.title = 'Double-click to rename';
 
@@ -489,15 +502,18 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
 
 
   // Dropped next to a window, the dragged one also joins that window's folder,
-  // so dragging beside a loose tab is how a window leaves its folder.
+  // so dragging beside a loose tab is how a window leaves its folder. Beside a
+  // pinned one it is pinned; a pinned one dropped among the rest is unpinned.
   async function drop(li, spot) {
     if (li.classList.contains('folder')) {
       if (spot.into) return nestFolder(li.dataset.folder, spot.over.dataset.folder);
       return moveFolder(li.dataset.folder, spot.over.dataset.folder, spot.after);
     }
     const folder = spot.over.dataset.folder;
+    const pin = !spot.into && spot.over.dataset.pinned === 'true';
     if (!spot.into) await move(li.dataset.id, spot.over.dataset.id, spot.after, false);
-    if (folder !== li.dataset.folder) await setFolder(li.dataset.id, folder);
+    if (pin !== (li.dataset.pinned === 'true')) await setPinned(li.dataset.id, pin, false);
+    if (!pin && folder !== li.dataset.folder) await setFolder(li.dataset.id, folder);
     await refresh();
   }
 
@@ -521,7 +537,8 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
   function showMenu(w, anchor) {
     const moveTo = menuItem('Move to…', () => showFolders(w, anchor), true);
     moveTo.disabled = !folders.length; // nowhere to move to yet
-    menu.replaceChildren(menuItem('Rename', () => rename(w)), menuItem('Duplicate', () => duplicate(w.id)), moveTo, menuItem('Close', () => remove(w)));
+    const pin = menuItem(w.pinned ? 'Unpin' : 'Pin', () => setPinned(w.id, !w.pinned));
+    menu.replaceChildren(menuItem('Rename', () => rename(w)), menuItem('Duplicate', () => duplicate(w.id)), pin, moveTo, menuItem('Close', () => remove(w)));
     menu.showPopover();
     placeMenu(anchor);
     menu.querySelector('button:not(:disabled)').focus();
@@ -564,6 +581,11 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
     collapsed.delete(folder); // you just put it there: show it
     saveCollapsed(collapsed);
     await api('PUT', `/api/windows/${encodeURIComponent(id)}/folder`, { name: folder }).catch(onError);
+  }
+
+  async function setPinned(id, on, reload = true) {
+    await api('PUT', `/api/windows/${encodeURIComponent(id)}/pinned`, { pinned: on }).catch(onError);
+    if (reload) await refresh();
   }
 
   function select(id) {
@@ -719,7 +741,8 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
       const neighbour = order[at + delta];
       if (at < 0 || !neighbour) return;
       await move(current, neighbour.id, delta > 0, false);
-      if (folderOf(neighbour) !== folderOf(order[at])) await setFolder(current, folderOf(neighbour));
+      if (neighbour.pinned !== order[at].pinned) await setPinned(current, neighbour.pinned, false);
+      if (!neighbour.pinned && folderOf(neighbour) !== folderOf(order[at])) await setFolder(current, folderOf(neighbour));
       await refresh();
     },
     // Alt+Down / Alt+Up: next or previous agent in the order shown, wrapping around.

@@ -23,6 +23,7 @@ type Window struct {
 	Activity bool   `json:"activity"`
 	Silence  bool   `json:"silence"` // idle long enough that the agent is probably waiting on you
 	Folder   string `json:"folder"`  // "" when the window is in no folder
+	Pinned   bool   `json:"pinned"`  // listed above every folder; its folder stays for when it is unpinned
 }
 
 // Tmux drives one session on one server socket. Socket is a tmux -S path, so
@@ -45,7 +46,7 @@ var (
 // and a folder with a tab in it (validName refuses one, but tmux set by hand
 // does not) split "jobs\tmovvia" + "seo" into folder "jobs", name "movvia\tseo":
 // the agent showed outside the folder however often it was moved in.
-const listFormat = "#{window_id}\t#{window_index}\t#{window_active}\t#{window_bell_flag}\t#{window_activity_flag}\t#{window_silence_flag}\t#{window_name}\t#{" + folderOption + "}"
+const listFormat = "#{window_id}\t#{window_index}\t#{window_active}\t#{window_bell_flag}\t#{window_activity_flag}\t#{window_silence_flag}\t#{" + pinnedOption + "}\t#{window_name}\t#{" + folderOption + "}"
 
 func (t Tmux) run(args ...string) (string, error) {
 	out, err := exec.Command("tmux", append([]string{"-S", t.Socket}, args...)...).CombinedOutput()
@@ -104,15 +105,15 @@ func (t Tmux) List() ([]Window, error) {
 func parseWindows(out string) []Window {
 	windows := []Window{}
 	for _, line := range strings.Split(strings.TrimRight(out, "\n"), "\n") { // not TrimSpace: it eats the tab before an empty folder
-		f := strings.SplitN(line, "\t", 8)
-		if len(f) != 8 {
+		f := strings.SplitN(line, "\t", 9)
+		if len(f) != 9 {
 			continue
 		}
 		var index int
 		fmt.Sscan(f[1], &index)
 		windows = append(windows, Window{
 			ID: f[0], Index: index, Active: f[2] == "1",
-			Bell: f[3] == "1", Activity: f[4] == "1", Silence: f[5] == "1", Name: f[6], Folder: f[7],
+			Bell: f[3] == "1", Activity: f[4] == "1", Silence: f[5] == "1", Pinned: f[6] == "1", Name: f[7], Folder: f[8],
 		})
 	}
 	return windows
@@ -148,6 +149,25 @@ func (t Tmux) Rename(id, name string) error {
 		return ErrBadName
 	}
 	_, err := t.run("rename-window", "-t", id, name)
+	return err
+}
+
+const pinnedOption = "@remotty-pinned"
+
+// SetPinned pins window id above the folders, or unpins it. A window option,
+// like its folder, so every client sees the same pins.
+func (t Tmux) SetPinned(id string, on bool) error {
+	if !windowIDPattern.MatchString(id) {
+		return ErrBadWindowID
+	}
+	if !t.hasWindow(id) {
+		return ErrNoWindow
+	}
+	if !on {
+		_, err := t.run("set-option", "-w", "-u", "-t", id, pinnedOption)
+		return err
+	}
+	_, err := t.run("set-option", "-w", "-t", id, pinnedOption, "1")
 	return err
 }
 

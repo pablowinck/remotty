@@ -71,6 +71,26 @@ test('Alt+Shift+Up follows the list as shown, into the folder above', async ({ p
   expect(folderOf('dois')).toBe(''); // the other loose one stays loose
 });
 
+test('Alt+Shift+Up next to a pinned agent pins it; Alt+Shift+Down out of Pinned unpins it', async ({ page, host }) => {
+  setup(host);
+  const pinnedOf = (name) => host.tmux('show-options', '-wqv', '-t', host.windows().find((w) => w.name === name).id, '@remotty-pinned').trim();
+  host.tmux('set-option', '-w', '-t', host.windows()[0].id, '@remotty-pinned', '1');
+  await pair(page, host);
+  const agents = page.locator('#tab-list li[data-id] .name');
+  await expect(agents).toHaveText(['um', 'dois', 'tres']);
+  await row(page, 'dois').click();
+  await page.keyboard.press('Alt+Shift+ArrowUp');
+  await expect.poll(() => pinnedOf('dois')).toBe('1'); // like a drop beside "um": it joins Pinned
+  await expect(page.locator('#tab-list li:nth-child(-n+3) .name')).toHaveText(['dois', 'um']);
+  await page.keyboard.press('Alt+Shift+ArrowDown'); // still beside a pinned one: stays pinned
+  await expect(page.locator('#tab-list li:nth-child(-n+3) .name')).toHaveText(['um', 'dois']);
+  expect(pinnedOf('dois')).toBe('1');
+  await page.keyboard.press('Alt+Shift+ArrowDown');
+  await expect.poll(() => pinnedOf('dois')).toBe('');
+  expect(pinnedOf('um')).toBe('1'); // the other pinned one stays pinned
+  await expect(agents).toHaveText(['um', 'tres', 'dois']); // like a drop after "tres", as across a folder's edge
+});
+
 test.describe('on a phone', () => {
   test.use({ viewport: { width: 360, height: 780 }, isMobile: true, hasTouch: true, deviceScaleFactor: 3 });
 

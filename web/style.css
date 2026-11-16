@@ -131,6 +131,8 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--focus); out
   #tab-list li:is(:hover, [aria-current="true"], :focus-within) .hotkey { visibility: hidden; }
 }
 @media (hover: none) { :root { --tab-w: 16rem; } }
+#tab-list li.pinned-header { color: var(--muted); font-size: .75rem; text-transform: uppercase; letter-spacing: .05em; cursor: default; }
+#tab-list li.pinned-header:hover { background: none; }
 #tab-list li.folder { color: var(--muted); font-size: .85rem; gap: .45rem; margin-top: .35rem; }
 #tab-list li.folder:hover { color: var(--text); }
 #tab-list li.folder::before { content: "▾"; width: .7rem; font-size: .75rem; order: -2; }

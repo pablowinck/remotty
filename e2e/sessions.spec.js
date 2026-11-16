@@ -122,6 +122,36 @@ test('folders group agents, collapse, and live in tmux', async ({ page, host }) 
   expect(host.tmux('show-options', '-v', '-t', '=main:', '@remotty-folders')).toBe('billing\ninfra\n');
 });
 
+test('a pinned agent sits under Pinned, above every folder, and goes back to its folder when unpinned', async ({ page, host }) => {
+  host.tmux('set-option', '-t', '=main:', '@remotty-folders', 'billing');
+  for (const name of ['faturas', 'boletos']) host.tmux('new-window', '-d', '-t', '=main:', '-n', name);
+  const id = (name) => host.windows().find((w) => w.name === name).id;
+  for (const name of ['faturas', 'boletos']) host.tmux('set-option', '-w', '-t', id(name), '@remotty-folder', 'billing');
+  await pair(page, host);
+  const rows = page.locator('#tab-list li');
+  const names = page.locator('#tab-list li[data-id] .name');
+  const pinnedOption = () => host.tmux('show-options', '-wqv', '-t', id('boletos'), '@remotty-pinned').trim();
+  await expect(names).toHaveText([/faturas/, /boletos/, /./]);
+  await expect(page.locator('#tab-list li.pinned-header')).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Options for boletos' }).click();
+  await page.getByRole('menuitem', { name: 'Pin', exact: true }).click();
+  await expect(rows.nth(0)).toHaveText('Pinned');
+  await expect(rows.nth(1).locator('.name')).toHaveText('boletos');
+  await expect(rows.nth(2)).toHaveClass(/folder/);
+  await expect(rows.nth(1)).not.toHaveClass(/in-folder/);
+  expect(pinnedOption()).toBe('1');
+  expect(host.tmux('show-options', '-wv', '-t', id('boletos'), '@remotty-folder').trim()).toBe('billing');
+
+  await page.getByRole('button', { name: 'Options for boletos' }).click();
+  await page.getByRole('menuitem', { name: 'Unpin' }).click();
+  await expect(page.locator('#tab-list li.pinned-header')).toHaveCount(0);
+  await expect(rows.nth(0)).toHaveClass(/folder/);
+  await expect(names).toHaveText([/faturas/, /boletos/, /./]);
+  await expect(page.locator('#tab-list li[data-id]', { hasText: 'boletos' })).toHaveClass(/in-folder/);
+  expect(pinnedOption()).toBe('');
+});
+
 test('a folder can be renamed, reordered by dragging, and deleted without closing its agents', async ({ page, host }) => {
   host.tmux('new-window', '-d', '-t', '=main:', '-n', 'faturas');
   const faturas = host.windows().find((w) => w.name === 'faturas');

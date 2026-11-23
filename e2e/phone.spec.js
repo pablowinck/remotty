@@ -105,6 +105,7 @@ test('tapping another tab leaves the soft keyboard closed until the terminal is 
   agents(host, 2);
   await pair(page, host);
   const textarea = page.locator('#terminal .xterm-helper-textarea');
+  await page.keyboard.press('a'); // a soft keyboard sends letters too: this is no hardware keyboard
   await page.getByRole('button', { name: 'Agents' }).tap();
   await page.locator('#tab-list li', { hasText: 'agente-com-nome-2' }).tap();
   await expect(page.locator('#top-name')).toHaveText('agente-com-nome-2');
@@ -115,6 +116,22 @@ test('tapping another tab leaves the soft keyboard closed until the terminal is 
   await page.keyboard.type('echo no-dois-$((1+1))\n');
   const two = host.windows().find((w) => w.name === 'agente-com-nome-2');
   await expect.poll(() => host.capture(two.id)).toContain('no-dois-2');
+});
+
+// A tablet with a hardware keyboard has no soft keyboard to pop up: once a key
+// only such a keyboard sends (Alt+1 here) has been seen, a tapped tab takes the keys.
+test('with a hardware keyboard, tapping another tab hands it the keys', async ({ page, host }) => {
+  agents(host, 2);
+  await pair(page, host);
+  const textarea = page.locator('#terminal .xterm-helper-textarea');
+  await page.keyboard.press('Alt+1');
+  await page.getByRole('button', { name: 'Agents' }).tap();
+  await page.locator('#tab-list li', { hasText: 'agente-com-nome-2' }).tap();
+  await expect(page.locator('#top-name')).toHaveText('agente-com-nome-2');
+  await expect(textarea).toBeFocused();
+  await page.keyboard.type('echo no-tablet-$((2*9))\n');
+  const two = host.windows().find((w) => w.name === 'agente-com-nome-2');
+  await expect.poll(() => host.capture(two.id)).toContain('no-tablet-18');
 });
 
 // A tap opens the agent, so a double-tap never reaches it: renaming goes through ⋯.

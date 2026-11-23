@@ -37,11 +37,17 @@ const LOOKS = {
 
 // Switched with a finger, the soft keyboard stays closed until the terminal
 // itself is tapped. A mouse or a keyboard still hands the keys to the terminal
-// at once.
+// at once, and so does a finger once a hardware keyboard has shown up (a tablet
+// with one): there no soft keyboard pops up to hide the agent.
 let lastInput = matchMedia('(pointer: coarse)').matches ? 'touch' : 'mouse'; // no keyboard popping up at load
+let hardwareKeyboard = false;
 addEventListener('pointerdown', (e) => (lastInput = e.pointerType), true);
-addEventListener('keydown', () => (lastInput = 'key'), true);
-const byTouch = () => lastInput === 'touch';
+addEventListener('keydown', (e) => {
+  lastInput = 'key';
+  // A soft keyboard sends letters and Enter too, but not these.
+  if (e.altKey || e.ctrlKey || e.metaKey || e.key === 'Escape') hardwareKeyboard = true;
+}, true);
+const byTouch = () => lastInput === 'touch' && !hardwareKeyboard;
 
 // Retry fast after a blip, then back off so a host that is down (or a tablet
 // that lost signal) is not hammered. Reset on every successful connection.

@@ -163,6 +163,9 @@ remotty revoke ID   # unpair; its open terminals close within a second
   folders, `⋯`, Restore and Settings. Picking an agent, tapping outside or Esc
   closes it. `+` opens it on the finder, which creates. The keys sit in two rows
   with no sideways scrolling.
+  Tapping an agent leaves the soft keyboard down until you tap the terminal; with a
+  hardware keyboard (once it has sent Alt, Ctrl, ⌘ or Esc), the tapped agent takes
+  the keys at once.
   When the soft keyboard opens, the terminal shrinks to what is left, on iOS too
   (where Safari covers the page instead of resizing it). Tapping a field never
   zooms the page in.

@@ -1,6 +1,6 @@
 /* Graphite, after the Codex desktop app: greys carry the layout, so the only
    colours on screen are the agent states, and they stand out. */
-:root {
+:root, [data-preview="graphite"] {
   --bg: #181818;
   --panel: #1f1f1f;   /* the sidebar, one step above the terminal */
   --raised: #2c2c2c;  /* the open agent, menus, keys */
@@ -12,13 +12,15 @@
   --bell: #ff5d5d;
   --waiting: #f5a524;
   --activity: #4cc2ff;
+  --accent: #3b82f6; /* switches, the picked theme, a key being recorded */
+  --mono: ui-monospace, "Cascadia Mono", Menlo, monospace;
   --tab-w: 14rem; /* a name and its Alt chip; with a mouse ⋯ takes the chip's place (below) */
   --term-inset: .4rem .5rem;
   color-scheme: dark;
 }
 /* Settings → Theme: Ghostty's defaults, the terminal background and panels a
    step darker, 2px of window-padding. */
-:root[data-theme="ghostty"] {
+:root[data-theme="ghostty"], [data-preview="ghostty"] {
   --bg: #282c34;
   --panel: #21252b;
   --raised: #2c313a;
@@ -27,6 +29,7 @@
   --text: #ffffff;
   --muted: #9da5b4;
   --term-inset: 2px;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
 }
 /* JetBrains Mono, Ghostty's built-in font, embedded: nothing leaves the origin.
    Fetched only when the Ghostty theme asks for it. */
@@ -112,7 +115,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--focus); out
 
 #tab-list { list-style: none; margin: .2rem 0 0; padding: 0; overflow-y: auto; flex: 1; }
 /* A dark, thin scrollbar on the sidebar's own background, not a light rail. */
-#tab-list, #key-settings, #settings, #restore-list { scrollbar-width: thin; scrollbar-color: #3a3a3a var(--panel); }
+#tab-list, #settings .settings-body, #restore-list { scrollbar-width: thin; scrollbar-color: #3a3a3a var(--panel); }
 #tab-list li { display: flex; align-items: center; gap: .35rem; padding: .5rem .4rem .5rem .6rem; border-radius: 8px; cursor: pointer; }
 #tab-list li:hover { background: var(--hover); }
 #tab-list li[aria-current="true"] { background: var(--raised); }
@@ -153,7 +156,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--focus); out
 #restore-list { list-style: none; margin: 0; padding: 0 .5rem; overflow-y: auto; flex: 1; min-height: 0; overscroll-behavior: contain; }
 #restore-list label { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: .7rem; align-items: center; min-height: 2.75rem; padding: .5rem .7rem; border-radius: 8px; cursor: pointer; }
 #restore-list label:hover { background: var(--hover); }
-#restore-list input { grid-row: span 2; width: 1.15rem; height: 1.15rem; margin: 0; accent-color: #3b82f6; }
+#restore-list input { grid-row: span 2; width: 1.15rem; height: 1.15rem; margin: 0; accent-color: var(--accent); }
 #restore-list .name, #restore-list .meta { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #restore-list .meta { color: var(--muted); font-size: .8rem; }
 #restore-dialog footer { display: flex; justify-content: flex-end; gap: .5rem; padding: .8rem 1.2rem; border-top: 1px solid var(--line); }
@@ -211,34 +214,6 @@ kbd {
 #tab-list li.drop-into { outline: 2px solid var(--focus); outline-offset: -2px; color: var(--text); }
 #tab-list li.create, #tab-list li.create-folder { color: var(--muted); font-style: italic; white-space: nowrap; }
 
-/* Settings: one card per section, a row per key, the control on the right. */
-#settings { width: min(34rem, 100%); max-height: min(44rem, 100%); padding: 0; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 20px 60px #000c; }
-#settings::backdrop { background: #000a; }
-#settings .settings-head { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.2rem .4rem; position: sticky; top: 0; background: var(--panel); z-index: 1; }
-#settings h2 { margin: 0; font-size: 1.3rem; }
-#settings section { padding: .4rem 1.2rem 1.2rem; }
-#settings h3 { margin: .6rem 0 .2rem; font-size: .95rem; }
-#settings .hint { margin: 0 0 .8rem; color: var(--muted); font-size: .85rem; }
-#settings-done { background: var(--text); color: var(--bg); font-weight: 600; }
-#key-settings { list-style: none; margin: 0 0 .8rem; padding: 0; width: auto; gap: 0; border-radius: 12px; background: var(--bg); }
-#key-settings li { display: flex; align-items: center; gap: .7rem; padding: .55rem .8rem; min-height: 2.9rem; }
-#key-settings li + li { border-top: 1px solid var(--line); }
-#key-settings li.dragging { background: var(--raised); }
-#key-settings .grip { color: var(--muted); cursor: grab; touch-action: none; padding: .3rem .2rem; user-select: none; }
-#key-settings .label { flex: 1; }
-#key-settings .label { display: flex; align-items: center; gap: .7rem; cursor: pointer; }
-#key-settings kbd { font-size: .8rem; min-width: 3.2rem; text-align: center; color: var(--text); }
-/* A switch: a checkbox drawn as a track and a knob. */
-#key-settings input { appearance: none; width: 2.4rem; height: 1.4rem; border-radius: 1rem; background: var(--line); position: relative; cursor: pointer; flex: none; margin: 0; transition: background .15s; }
-#key-settings input::after { content: ""; position: absolute; top: .2rem; left: .2rem; width: 1rem; height: 1rem; border-radius: 50%; background: var(--text); transition: transform .15s; }
-#key-settings input:checked { background: #3b82f6; }
-#key-settings input:checked::after { transform: translateX(1rem); }
-#keys-reset { background: none; color: var(--muted); padding-left: 0; }
-#keys-reset:hover { color: var(--text); background: none; }
-#theme-picker { display: flex; gap: .5rem; }
-#theme-picker label { flex: 1; display: flex; align-items: center; gap: .5rem; padding: .6rem .8rem; border-radius: 12px; background: var(--bg); cursor: pointer; }
-#theme-picker input { accent-color: #3b82f6; margin: 0; }
-
 /* Portrait or narrow (tablet upright, phone, split screen): width is scarce, so
    the terminal takes it all and the agent list becomes a drawer, the same list
    as on a desktop, opened from the top bar. Every row is pinned to the screen
@@ -281,7 +256,6 @@ kbd {
   #terminal { inset: .35rem .5rem; }
   #status { bottom: 7rem; }
 
-  #settings { width: 100%; max-width: none; height: 100%; max-height: none; border-radius: 0; border: 0; padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
   /* The Restore picker becomes a full-screen sheet: the list scrolls, Reopen stays under the thumb. */
   #restore-dialog { width: 100%; max-width: none; height: 100dvh; max-height: none; margin: 0; border: 0; border-radius: 0; }
   #restore-dialog form { height: 100%; padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left); }

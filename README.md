@@ -88,14 +88,21 @@ remotty revoke ID   # unpair; its open terminals close within a second
   Alt is ⌥ Option and the hints say so (`⌥1`). As in Ghostty:
   ⌘T asks for a new agent's name (Enter creates it; empty, an unnamed one),
   ⌘W closes the open agent, ⌘E duplicates it, and ⌘Z reopens the last one
-  closed, still running, for 5 minutes. If nothing is named exactly that, the last row
+  closed, still running, for 5 minutes. Off Apple ⌘ is the Win or Super key,
+  which the system keeps, so there they are `Alt+Shift+N`, `W`, `D` and `Z`. If nothing is named exactly that, the last row
   creates a new agent with the name you typed; `Enter` on an empty finder
   creates an unnamed one. `Esc` goes back to the terminal.
 - On a wide screen the icon next to "remotty" hides the list and the terminal
   takes the whole width; the same icon, top left, brings it back. With the list
-  hidden, `Ctrl+Shift+K` (or ⌘T) floats the finder in the middle of the screen,
+  hidden, `Ctrl+Shift+K` (or New agent) floats the finder in the middle of the screen,
   like Spotlight: the same search, create, folders and `Alt+N` chips, gone again
   once you open an agent or press `Esc`.
+- These are the defaults. **Settings → Shortcuts** rebinds any of them, per
+  device: click a row and press the new keys (`Esc` cancels, `Backspace` leaves
+  it without one). Keys another action had move over, with an Undo. Keys the
+  terminal needs are refused: a key without Alt, Ctrl or ⌘, Ctrl plus one key
+  (`Ctrl+C`, `Ctrl+R`), Alt plus a letter (the shell's word moves) and
+  Alt+Enter. For Open agent 1–9 you press any digit and the modifiers are kept.
 - Double-click a tab to rename it. Its `⋯` menu renames it (the way on a phone, where a tap
   opens the agent), closes it, moves it to a folder, pins it (pinned agents sit
   under `Pinned`, above every folder, on every device; `Unpin` puts them back in their folder), or
@@ -151,11 +158,12 @@ remotty revoke ID   # unpair; its open terminals close within a second
   opens as plain text, where the phone's own selection works (hold a word, drag
   the handles, Copy). `Copy all` copies the whole screen, `Done` goes back.
 - The bottom bar has the keys a tablet keyboard lacks: Esc, Tab, Enter, a sticky Ctrl,
-  arrows, ^C and paste. **Settings** (under the agent list) picks which of them show
-  and in what order (drag ⠿, or Alt+↑/↓ on a key). It is per device: a touch screen
-  starts with every key, a mouse and keyboard with none. 🎤 and 📎 always show.
-  Settings also picks the theme, per device: Graphite (the default) or Ghostty
-  (its stock colours and JetBrains Mono 13, embedded).
+  arrows, ^C and paste. **Settings → Key bar** (Settings is under the agent list)
+  picks which of them show and in what order (drag ⠿, or Alt+↑/↓ on a key), with
+  a preview of the bar above. It is per device: a touch screen starts with every
+  key, a mouse and keyboard with none. 🎤 and 📎 always show.
+  **Settings → Appearance** picks the theme, per device: Graphite (the default) or
+  Ghostty (its stock colours and JetBrains Mono 13, embedded).
 - ⌘-click a link (Ctrl-click off Apple) to open it: plain-text URLs and the OSC 8
   links Claude Code prints. With the page open on the host itself, the host opens
   it in its default browser (`open` on macOS, `xdg-open` on Linux); anywhere else,

@@ -434,15 +434,11 @@ export const APPLE = /Mac|iPhone|iPad|iPod/.test(navigator.platform);
 
 // shortcutOf names a key event the way the shortcut table does: "Ctrl+Shift+K".
 // Digits go by physical key: Option+1 on an Apple keyboard types "¡", not "1".
+// So do letters Alt turns into something else: Option+N is "˜", a dead key.
+// A layout's own letters (AZERTY, Dvorak) stay as typed.
 export function shortcutOf(e) {
-  const key = /^Digit\d$/.test(e.code) ? e.code.slice(5) : e.key.length === 1 ? e.key.toUpperCase() : e.key;
+  const key = /^Digit\d$/.test(e.code) ? e.code.slice(5) : e.altKey && !/^[a-z]$/i.test(e.key) && /^Key[A-Z]$/.test(e.code) ? e.code.slice(3) : e.key.length === 1 ? e.key.toUpperCase() : e.key;
   return [e.ctrlKey && 'Ctrl', e.altKey && 'Alt', e.shiftKey && 'Shift', e.metaKey && 'Meta', key].filter(Boolean).join('+');
-}
-
-// keyLabel writes a shortcut hint the way the device's keyboard does:
-// "Ctrl ⇧ K" and "Alt 2" become "⌃⇧K" and "⌥2" on Apple devices.
-export function keyLabel(text) {
-  return APPLE ? text.replace(/Ctrl ?/g, '⌃').replace(/Alt ?/g, '⌥').replace(/⇧ ?/g, '⇧') : text;
 }
 
 // Ctrl+letter is the letter's code minus 64: Ctrl+C = 0x03.

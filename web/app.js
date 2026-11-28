@@ -4,7 +4,8 @@ import { showPairing } from './features/access.js';
 import { createSessions } from './features/sessions.js';
 import { wireDrawer, wireSidebar, wireSidebarToggle } from './features/sidebar.js';
 import { savedTheme, wireSettings } from './features/settings.js';
-import { createTerminal, keyLabel, shortcutOf } from './features/terminal.js';
+import { actionFor, comboLabel, comboOf } from './features/shortcuts.js';
+import { createTerminal } from './features/terminal.js';
 
 const status = document.getElementById('status');
 const setStatus = (text) => (status.textContent = text);
@@ -46,27 +47,27 @@ async function main() {
   wireSidebar();
   wireSidebarToggle({ onHide: () => terminal.focus() });
   const drawer = wireDrawer();
-  document.querySelectorAll('#app kbd').forEach((k) => (k.textContent = keyLabel(k.textContent)));
-  // App shortcuts. The terminal is told which keys are ours so it never sends
-  // them to the shell (see attachCustomKeyEventHandler in terminal.js).
-  const shortcuts = {
-    'Ctrl+Shift+K': () => findAgent(),
-    // As in Ghostty: ⌘T names a new agent (Enter creates it), ⌘W closes the open
-    // one, ⌘Z reopens the last one closed, ⌘E duplicates the open one.
-    'Meta+T': () => {
+  // App shortcuts (rebindable in Settings, see shortcuts.js). The terminal is
+  // told which keys are ours so it never sends them to the shell (see
+  // attachCustomKeyEventHandler in terminal.js).
+  const run = {
+    find: () => findAgent(),
+    new: () => {
       drawer.open(); // on a narrow screen the finder lives in the drawer
       sessions.newAgent();
     },
-    'Meta+W': () => sessions.closeCurrent(),
-    'Meta+Z': () => sessions.reopenLast(),
-    'Meta+E': () => sessions.duplicateCurrent(),
-    'Alt+ArrowDown': () => sessions.step(1),
-    'Alt+ArrowUp': () => sessions.step(-1),
-    'Alt+Shift+ArrowDown': () => sessions.shift(1),
-    'Alt+Shift+ArrowUp': () => sessions.shift(-1),
+    close: () => sessions.closeCurrent(),
+    reopen: () => sessions.reopenLast(),
+    duplicate: () => sessions.duplicateCurrent(),
+    open: (n) => sessions.openIndex(n),
+    next: () => sessions.step(1),
+    prev: () => sessions.step(-1),
+    moveDown: () => sessions.shift(1),
+    moveUp: () => sessions.shift(-1),
   };
-  for (let n = 1; n <= 9; n++) shortcuts[`Alt+${n}`] = () => sessions.openIndex(n);
-  const isShortcut = (e) => Boolean(shortcuts[shortcutOf(e)]);
+  const isShortcut = (e) => Boolean(actionFor(e));
+  const MOVES = ['next', 'prev', 'moveDown', 'moveUp']; // these may repeat while held
+  showFindKey();
   const theme = savedTheme();
   await showTheme(theme); // before xterm opens: it measures its cell once, on the font it has then
   await styled(document.querySelector('link[href="/lib/xterm/xterm.css"]'));
@@ -102,18 +103,22 @@ async function main() {
       await showTheme(name);
       terminal.setLook(name);
     },
+    onShortcuts: () => {
+      showFindKey();
+      sessions.redraw(); // the Alt+N chips on the rows
+    },
   });
   document.getElementById('open-settings').addEventListener('click', () => {
     drawer.close();
     settings.open();
   });
   document.addEventListener('keydown', (e) => {
-    const action = shortcuts[shortcutOf(e)];
-    if (e.target.id === 'find' && shortcutOf(e) === 'Meta+Z') return; // typing a name: ⌘Z undoes text
-    if (action) {
-      e.preventDefault();
-      action();
-    }
+    const action = actionFor(e);
+    if (!action || document.querySelector('dialog[open]')) return; // a dialog is up: its keys are its own
+    if (e.repeat && !MOVES.includes(action.id)) return e.preventDefault(); // a held ⌘W closes one agent, not ten
+    if (e.target.id === 'find' && action.id === 'reopen') return; // typing a name: ⌘Z undoes text
+    e.preventDefault();
+    run[action.id](action.n);
   });
   sessions.start();
 }
@@ -137,6 +142,16 @@ function loaded(sheet) {
   } catch {
     return false;
   }
+}
+
+// The finder's chip and its aria-keyshortcuts follow the Find binding.
+function showFindKey() {
+  const combo = comboOf('find');
+  document.getElementById('find-key').textContent = combo ? comboLabel(combo) : '';
+  document.getElementById('find-key').hidden = !combo;
+  const find = document.getElementById('find');
+  if (combo) find.setAttribute('aria-keyshortcuts', combo.replace('Ctrl', 'Control'));
+  else find.removeAttribute('aria-keyshortcuts');
 }
 
 // The page's colours follow the theme (style.css). Ghostty's embedded font is

@@ -5,10 +5,11 @@ import { test, expect, pair, typeInTerminal } from './fixtures.js';
 const shownKeys = (page) => page.locator('#keys button:visible').evaluateAll((bs) => bs.map((b) => b.textContent || b.getAttribute('aria-label')));
 const FIXED = ['Attach a photo or file', 'Record a voice note'];
 
-async function openSettings(page) {
+async function openSettings(page, section = 'Key bar') {
   if (await page.locator('#menu').isVisible()) await page.locator('#menu').click(); // narrow: Settings is in the drawer
   await page.getByRole('button', { name: 'Settings' }).click();
   await expect(page.getByRole('dialog', { name: 'Settings' })).toBeVisible();
+  await page.getByRole('tab', { name: section }).click();
 }
 
 test.describe('with a mouse and keyboard', () => {
@@ -60,6 +61,12 @@ test.describe('with a mouse and keyboard', () => {
 
     await page.getByRole('button', { name: 'Reset to defaults' }).click();
     await expect(page.locator('#key-settings li').first()).toHaveAttribute('data-id', 'esc');
+    expect(await shownKeys(page)).toEqual(FIXED);
+    // An order made by hand is not lost to a slip: Undo brings it back, then reset again.
+    await page.getByRole('button', { name: 'Undo' }).click();
+    await expect(page.locator('#key-settings li').first()).toHaveAttribute('data-id', 'tab');
+    expect(await shownKeys(page)).toEqual(['Tab', 'Esc', ...FIXED]);
+    await page.getByRole('button', { name: 'Reset to defaults' }).click();
     expect(await shownKeys(page)).toEqual(FIXED);
     await page.keyboard.press('Escape');
     await page.reload();
@@ -116,7 +123,7 @@ test('the theme is graphite by default, and Ghostty is a choice that sticks', as
   expect(await look()).toMatchObject({ bg: 'rgb(24, 24, 24)', page: 'rgb(24, 24, 24)', meta: '#181818' });
   expect((await look()).font).not.toContain('JetBrains');
 
-  await openSettings(page);
+  await openSettings(page, 'Appearance');
   await expect(page.getByRole('radio', { name: 'Graphite' })).toBeChecked();
   await page.getByRole('radio', { name: 'Ghostty' }).check();
   await expect.poll(async () => (await look()).bg).toBe('rgb(40, 44, 52)'); // #282c34

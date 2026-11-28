@@ -5,7 +5,7 @@
 // from the keyboard:
 //   Ctrl+Shift+K, type, Enter  -> open the highlighted agent, or create one
 import { api } from './api.js';
-import { keyLabel } from './terminal.js';
+import { comboAt, comboLabel } from './shortcuts.js';
 
 const POLL_MS = 2000;
 const COLLAPSED_KEY = 'remotty.collapsed';
@@ -335,7 +335,7 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
     const hotkey = document.createElement('kbd');
     hotkey.className = 'hotkey';
     const key = hotkeyOrder().indexOf(w) + 1;
-    if (key) hotkey.textContent = keyLabel(`Alt ${key}`);
+    if (key && comboAt('open', key)) hotkey.textContent = comboLabel(comboAt('open', key));
     const more = document.createElement('button');
     more.className = 'more';
     more.type = 'button';
@@ -731,6 +731,7 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
       if (first) select(first.id);
     },
     stop: () => clearInterval(timer),
+    redraw: () => render(),
     // Alt+N: the Nth agent in the list as shown.
     openIndex(n) {
       const w = hotkeyOrder()[n - 1];

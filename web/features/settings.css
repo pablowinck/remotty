@@ -1,0 +1,163 @@
+/* Settings: sections on the left, one at a time on the right; on a phone a full
+   screen sheet with the sections across the top. Fixed height, so switching
+   sections never makes the dialog jump. */
+#settings {
+  width: min(52rem, calc(100% - 2rem)); height: min(38rem, calc(100dvh - 2rem)); padding: 0;
+  color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
+  box-shadow: 0 30px 80px #000d, 0 0 0 1px #ffffff08 inset; overflow: hidden;
+}
+#settings[open] { display: grid; grid-template: "head head" auto "nav body" minmax(0, 1fr) / 13rem minmax(0, 1fr); animation: settings-in .16s ease-out; }
+#settings::backdrop { background: #000a; backdrop-filter: blur(2px); animation: settings-fade .16s ease-out; }
+@keyframes settings-in { from { opacity: 0; transform: translateY(6px) scale(.985); } }
+@keyframes settings-fade { from { opacity: 0; } }
+
+#settings .settings-head { grid-area: head; display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .9rem 1rem .9rem 1.25rem; border-bottom: 1px solid var(--line); }
+#settings h2 { margin: 0; font-size: 1.05rem; letter-spacing: -.01em; }
+.settings-sub { margin: .1rem 0 0; color: var(--muted); font-size: .78rem; }
+#settings-done { background: var(--text); color: var(--bg); font-weight: 600; min-width: 4.5rem; }
+#settings-done:hover { background: var(--text); opacity: .88; }
+#settings button { transition: background-color .12s, color .12s, border-color .12s, box-shadow .12s; }
+
+/* Sections: icon and name, the open one raised. */
+#settings-nav { grid-area: nav; display: flex; flex-direction: column; gap: .15rem; padding: .75rem .6rem; border-right: 1px solid var(--line); background: color-mix(in srgb, var(--bg) 45%, var(--panel)); }
+#settings-nav [role="tab"] { display: flex; align-items: center; gap: .65rem; padding: .55rem .7rem; background: none; color: var(--muted); text-align: left; font-size: .92rem; border-radius: 8px; }
+@media (hover: hover) { #settings-nav [role="tab"]:hover { background: var(--hover); color: var(--text); } }
+#settings-nav [aria-selected="true"], #settings-nav [aria-selected="true"]:hover { background: var(--raised); color: var(--text); font-weight: 550; }
+#settings-nav [role="tab"]::before { content: ""; flex: none; width: 1.05rem; height: 1.05rem; background: currentColor; -webkit-mask: var(--icon) no-repeat center / contain; mask: var(--icon) no-repeat center / contain; }
+/* Inline masks: a stroke icon each, drawn in the text colour. */
+.icon-appearance { --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 3a9 9 0 0 0 0 18z' fill='%23000'/%3E%3C/svg%3E"); }
+.icon-keybar { --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='2' y='14' width='6' height='6' rx='1.5'/%3E%3Crect x='9' y='14' width='6' height='6' rx='1.5'/%3E%3Crect x='16' y='14' width='6' height='6' rx='1.5'/%3E%3Cpath d='M4 4h16v6H4z'/%3E%3C/svg%3E"); }
+.icon-shortcuts { --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='2' y='5' width='20' height='14' rx='2.5'/%3E%3Cpath d='M6 9h0M10 9h0M14 9h0M18 9h0M6 13h0M18 13h0M9 15.5h6M10 13h4'/%3E%3C/svg%3E"); }
+
+.settings-body { grid-area: body; overflow-y: auto; overscroll-behavior: contain; }
+.settings-body [role="tabpanel"] { padding: 1.25rem 1.5rem 1.5rem; outline: none; }
+#settings h3 { margin: 0 0 .25rem; font-size: 1.15rem; letter-spacing: -.01em; }
+#settings h4 { margin: 1.4rem 0 .5rem; color: var(--muted); font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .07em; }
+#settings .hint { margin: 0 0 1rem; color: var(--muted); font-size: .85rem; line-height: 1.45; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.touch-note { display: none; }
+@media (pointer: coarse) { .touch-note { display: inline; } }
+
+/* A grouped list: rows on the terminal's own background, hairlines between. */
+.settings-list { list-style: none; margin: 0; padding: 0; border-radius: 12px; background: var(--bg); border: 1px solid var(--line); overflow: hidden; }
+.settings-list > li + li { border-top: 1px solid var(--line); }
+/* Pinned to the bottom of the pane, so Reset is in view however long the list. */
+/* Pinned to the bottom of the pane, flush with it (the pane gives up its bottom padding). */
+[role="tabpanel"]:has(> .pane-foot) { padding-bottom: 0 !important; }
+.pane-foot { position: sticky; bottom: 0; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem 1rem; margin: 1rem -1.5rem 0; padding: .7rem 1.5rem; background: var(--panel); border-top: 1px solid var(--line); }
+.pane-foot .sc-msg { flex-basis: 100%; margin: 0; }
+#shortcuts-changed.some::before { content: ""; display: inline-block; width: .4rem; height: .4rem; margin-right: .45rem; border-radius: 50%; background: var(--accent); vertical-align: .1em; }
+#settings button.quiet:disabled { visibility: hidden; } /* nothing to reset: no grey button that looks broken */
+#settings .pane-foot .hint { margin: 0; font-size: .8rem; line-height: 1.2; } /* #settings .hint gives every hint a bottom margin */
+#settings button.quiet { background: none; color: var(--muted); padding: .45rem .6rem; flex: none; }
+#settings button.quiet:hover { color: var(--text); background: var(--hover); }
+
+/* Appearance: each theme drawn in its own colours, picked by a ring. */
+#theme-picker { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: .9rem; }
+.theme-card { display: grid; gap: .2rem; padding: .6rem .6rem .8rem; border-radius: 14px; background: var(--bg); border: 1px solid var(--line); cursor: pointer; color: var(--text); transition: border-color .15s, box-shadow .15s; }
+.theme-card:hover { border-color: var(--muted); }
+.theme-card:has(input:checked) { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.theme-card:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: 2px; }
+.theme-sample { display: flex; height: 9rem; margin-bottom: .45rem; border-radius: 9px; overflow: hidden; border: 1px solid var(--line); }
+.ts-side { width: 30%; display: flex; flex-direction: column; gap: .3rem; padding: .55rem .4rem; background: var(--panel); border-right: 1px solid var(--line); }
+.ts-side i { display: flex; align-items: center; gap: .3rem; height: .95rem; padding: 0 .3rem; border-radius: 4px; }
+.ts-side i::after { content: ""; flex: 1; height: .28rem; border-radius: 2px; background: var(--line); }
+.ts-side i.on { background: var(--raised); }
+.ts-side b { width: .32rem; height: .32rem; border-radius: 50%; flex: none; }
+.ts-activity { background: var(--activity); } .ts-waiting { background: var(--waiting); } .ts-bell { background: var(--bell); }
+.ts-term { flex: 1; display: flex; flex-direction: column; gap: .2rem; padding: .6rem .7rem; background: var(--bg); color: var(--text); font: 11px/1.35 var(--mono); overflow: hidden; }
+.ts-term i { font-style: normal; white-space: nowrap; overflow: hidden; text-overflow: clip; }
+.ts-term b { font-weight: 400; }
+.ts-dim { color: var(--muted); }
+.ts-ok { color: var(--waiting); }
+.ts-cursor { display: inline-block; width: .5em; height: 1.1em; vertical-align: text-bottom; background: var(--text); }
+.theme-name { display: flex; align-items: center; gap: .5rem; padding: 0 .2rem; font-weight: 600; font-size: .92rem; }
+.theme-name input { margin: 0; accent-color: var(--accent); }
+.theme-note { padding: 0 .2rem 0 1.65rem; color: var(--muted); font-size: .8rem; }
+
+/* Key bar: the bar in miniature, then a row per key. */
+#keys-preview { display: flex; flex-wrap: wrap; gap: .3rem; padding: .7rem; margin-bottom: .9rem; border-radius: 12px; background: var(--bg); border: 1px dashed var(--line); min-height: 2.9rem; }
+#keys-preview span { display: grid; place-items: center; min-width: 2.3rem; height: 1.85rem; padding: 0 .45rem; border-radius: 6px; background: var(--raised); font-size: .78rem; }
+#keys-preview .icon-attach, #keys-preview .icon-mic { position: relative; }
+#keys-preview .icon-attach::before, #keys-preview .icon-mic::before { content: ""; width: .95rem; height: .95rem; background: var(--muted); -webkit-mask: var(--icon) no-repeat center / contain; mask: var(--icon) no-repeat center / contain; }
+#keys-preview .icon-attach { --icon: url(/attach.svg); }
+#keys-preview .icon-mic { --icon: url(/mic.svg); }
+#key-settings li { display: flex; align-items: center; gap: .7rem; padding: .5rem .8rem .5rem .4rem; min-height: 2.9rem; background: var(--bg); }
+#key-settings li.dragging { background: var(--raised); box-shadow: 0 6px 20px #0008; position: relative; z-index: 1; }
+#key-settings .grip { color: var(--muted); cursor: grab; touch-action: none; padding: .35rem .4rem; user-select: none; border-radius: 6px; }
+#key-settings .grip:hover { color: var(--text); background: var(--hover); }
+#key-settings .label { flex: 1; display: flex; align-items: center; gap: .75rem; cursor: pointer; font-size: .92rem; }
+#key-settings kbd { font-size: .78rem; min-width: 3.2rem; text-align: center; color: var(--text); }
+/* A switch: a checkbox drawn as a track and a knob. */
+#key-settings input { appearance: none; width: 2.4rem; height: 1.4rem; border-radius: 1rem; background: var(--line); position: relative; cursor: pointer; flex: none; margin: 0; transition: background .15s; }
+#key-settings input::after { content: ""; position: absolute; top: .2rem; left: .2rem; width: 1rem; height: 1rem; border-radius: 50%; background: var(--text); box-shadow: 0 1px 2px #0006; transition: transform .15s; }
+#key-settings input:checked { background: var(--accent); }
+#key-settings input:checked::after { transform: translateX(1rem); }
+
+/* Shortcuts: the action, its keys as a button, and a way back to the default. */
+.sc-group:first-child h4 { margin-top: .4rem; }
+/* Label, then ↺ only when changed, then the keys: every row's keys end on the same edge. */
+.sc-row:not(.fixed) { cursor: pointer; }
+@media (hover: hover) { .sc-row:not(.fixed):hover { background: color-mix(in srgb, var(--hover) 70%, var(--bg)); } }
+.sc-sub { display: block; margin-top: .1rem; color: var(--muted); font-size: .75rem; }
+.sc-row { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem .5rem; padding: .45rem .5rem .45rem .9rem; min-height: 2.9rem; }
+.sc-label { flex: 1; min-width: 0; font-size: .92rem; text-wrap: balance; }
+.sc-row.fixed .sc-label, .sc-row.fixed kbd { color: var(--muted); }
+.sc-row.changed .sc-label::after { display: inline-block; width: .4rem; height: .4rem; border-radius: 50%; background: var(--accent); vertical-align: middle; }
+.sc-row.changed .sc-label::after { content: ""; margin-left: .5rem; }
+.sc-keys { flex: none; display: flex; align-items: center; justify-content: flex-end; gap: .25rem; min-width: 0; min-height: 2.1rem; padding: .25rem .4rem; background: none; border: 1px solid transparent; border-radius: 8px; }
+/* Bare keycaps at rest; the box shows where it can be acted on: hover, focus, a touch screen. */
+button.sc-keys { cursor: pointer; }
+.sc-row:hover button.sc-keys { border-color: var(--line); }
+@media (pointer: coarse) { button.sc-keys { border-color: color-mix(in srgb, var(--line) 70%, transparent); } }
+button.sc-keys:hover { background: var(--hover); border-color: var(--line); }
+.sc-keys:focus-visible, .sc-reset:focus-visible, .sc-undo:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.sc-keys kbd { min-width: 1.6rem; text-align: center; font-size: .75rem; padding: .25rem .4rem; color: var(--text); }
+.sc-none { color: var(--muted); font-size: .82rem; font-style: italic; }
+.sc-keys.recording, .sc-keys.recording:hover { justify-content: center; border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); animation: sc-ring 1.4s ease-in-out infinite; } /* the wait is open-ended: it pulses until keys or Esc */
+@keyframes sc-ring { 0%, 100% { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent); } 50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 10%, transparent); } }
+.sc-wait { color: var(--text); font-size: .82rem; font-weight: 550; }
+.sc-keys.just-set { animation: sc-flash .6s ease-out; }
+@keyframes sc-flash { from { background: color-mix(in srgb, var(--accent) 30%, transparent); } }
+.sc-keys.just-lost { animation: sc-lost .9s ease-out; }
+@keyframes sc-lost { from { background: color-mix(in srgb, var(--waiting) 28%, transparent); } }
+.sc-reset { flex: none; width: 2rem; height: 2rem; padding: 0; display: grid; place-items: center; background: none; color: var(--muted); }
+.sc-reset::before { content: ""; width: .95rem; height: .95rem; background: currentColor; -webkit-mask: url(/restore.svg) no-repeat center / contain; mask: url(/restore.svg) no-repeat center / contain; }
+.sc-reset:hover { color: var(--text); background: var(--hover); }
+#shortcut-settings > .sc-msg { margin-top: .8rem; }
+.sc-msg { flex-basis: 100%; margin: 0 0 .1rem; font-size: .8rem; line-height: 1.35; }
+.sc-undo { padding: .1rem .5rem; margin-left: .2rem; font-size: .8rem; font-weight: 600; color: var(--text); background: var(--raised); border-radius: 6px; }
+.sc-msg::before { content: "● "; font-size: .6rem; vertical-align: .15em; }
+.sc-msg.error { color: var(--bell); }
+.sc-msg.warn { color: var(--waiting); }
+
+/* Phone, tablet upright: a full screen sheet, sections as a segmented control. */
+@media (orientation: portrait), (max-width: 700px) {
+  #settings { width: 100%; max-width: none; height: 100%; max-height: none; margin: 0; border: 0; border-radius: 0; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+  #settings[open] { grid-template: "head" auto "nav" auto "body" minmax(0, 1fr) / minmax(0, 1fr); animation-name: settings-up; }
+  #settings .settings-head { padding: .6rem .75rem .6rem 1rem; border-bottom: 0; }
+  #settings h2 { font-size: 1.25rem; }
+  #settings-done, #settings-done:hover { min-height: 2.75rem; background: var(--raised); color: var(--text); opacity: 1; }
+  #settings-nav { flex-direction: row; gap: 0; margin: 0 1rem .6rem; padding: .2rem; border: 0; border-radius: 10px; background: var(--bg); }
+  #settings-nav [aria-selected="true"] { box-shadow: 0 0 0 1px var(--line), 0 1px 3px #0006; }
+  #settings-nav [role="tab"] { flex: 1; justify-content: center; gap: .4rem; min-height: 2.5rem; padding: .4rem .3rem; font-size: .85rem; }
+  #settings-nav [role="tab"]::before { width: .95rem; height: .95rem; }
+  .settings-body { border-top: 1px solid var(--line); }
+  .settings-body [role="tabpanel"] { padding: 1rem 1rem 1.5rem; }
+  #theme-picker { grid-template-columns: 1fr 1fr; gap: .6rem; }
+  .theme-sample { height: 6.4rem; }
+  .ts-term { font-size: 9.5px; gap: .1rem; padding: .5rem; }
+  .ts-side { width: 26%; }
+  .theme-note { padding-left: .2rem; }
+  .sc-row { min-height: 3.25rem; padding-left: .8rem; }
+  .sc-keys { min-height: 2.75rem; }
+  .sc-reset { width: 2.75rem; height: 2.75rem; }
+  .pane-foot { margin: 1rem -1rem 0; padding: .7rem 1rem calc(.7rem + env(safe-area-inset-bottom)); }
+  #key-settings li { min-height: 3.25rem; }
+  #settings button.quiet { min-height: 2.75rem; }
+}
+@keyframes settings-up { from { transform: translateY(1.5rem); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  #settings[open], #settings::backdrop, .sc-keys.recording, .sc-keys.just-set, .sc-keys.just-lost { animation: none; }
+  #settings button { transition: none; }
+}

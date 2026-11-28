@@ -9,6 +9,7 @@
   <link rel="icon" href="/icon.svg">
   <link rel="stylesheet" href="/lib/xterm/xterm.css">
   <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/features/settings.css">
   <script type="module" src="/app.js"></script>
 </head>
 <body>
@@ -40,7 +41,7 @@
       <div id="find-box">
         <input id="find" type="search" placeholder="Find or create" aria-label="Find or create an agent" aria-keyshortcuts="Control+Shift+K"
                aria-controls="tab-list" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="go">
-        <kbd id="find-key" aria-hidden="true">Ctrl ⇧ K</kbd>
+        <kbd id="find-key" aria-hidden="true"></kbd>
       </div>
       <ul id="tab-list"></ul>
       <div id="tab-menu" popover role="menu" aria-label="Agent options"></div>
@@ -83,24 +84,56 @@
     </dialog>
     <p id="status" role="status"></p>
     <dialog id="settings" aria-labelledby="settings-title">
-      <div class="settings-head">
-        <h2 id="settings-title">Settings</h2>
-        <button id="settings-done" type="button">Done</button>
-      </div>
-      <section aria-labelledby="keys-title">
-        <h3 id="keys-title">Key bar</h3>
-        <p class="hint">The keys under the terminal, on this device. Drag <span aria-hidden="true">⠿</span> or press Alt ↑↓ on a key to reorder. The microphone and attach are always there.</p>
-        <ul id="key-settings"></ul>
-        <button id="keys-reset" type="button">Reset to defaults</button>
-      </section>
-      <section aria-labelledby="theme-title">
-        <h3 id="theme-title">Theme</h3>
-        <p class="hint">On this device.</p>
-        <div id="theme-picker" role="radiogroup" aria-labelledby="theme-title">
-          <label><input type="radio" name="theme" value="graphite"> Graphite</label>
-          <label><input type="radio" name="theme" value="ghostty"> Ghostty</label>
+      <header class="settings-head">
+        <div>
+          <h2 id="settings-title">Settings</h2>
+          <p class="settings-sub">Saved on this device</p>
         </div>
-      </section>
+        <button id="settings-done" type="button">Done</button>
+      </header>
+      <nav id="settings-nav" role="tablist" aria-label="Settings sections" aria-orientation="vertical">
+        <button role="tab" id="tab-appearance" aria-controls="pane-appearance" data-pane="appearance" class="icon-appearance">Appearance</button>
+        <button role="tab" id="tab-keybar" aria-controls="pane-keybar" data-pane="keybar" class="icon-keybar">Key bar</button>
+        <button role="tab" id="tab-shortcuts" aria-controls="pane-shortcuts" data-pane="shortcuts" class="icon-shortcuts">Shortcuts</button>
+      </nav>
+      <div class="settings-body">
+        <section id="pane-appearance" role="tabpanel" aria-labelledby="tab-appearance" tabindex="-1">
+          <h3 id="theme-title">Theme</h3>
+          <p class="hint">Colours and font of the terminal and the panels around it.</p>
+          <div id="theme-picker" role="radiogroup" aria-labelledby="theme-title">
+            <label class="theme-card" data-preview="graphite">
+              <span class="theme-sample" aria-hidden="true"><span class="ts-side"><i class="on"><b class="ts-activity"></b></i><i><b class="ts-waiting"></b></i><i><b class="ts-bell"></b></i><i></i></span><span class="ts-term"><i><b class="ts-dim">~/api</b> $ git st</i><i><b class="ts-ok">M</b> server.go</i><i><b class="ts-ok">M</b> routes.go</i><i><b class="ts-dim">~/api</b> $ <b class="ts-cursor"></b></i></span></span>
+              <span class="theme-name"><input type="radio" name="theme" value="graphite"> Graphite</span>
+              <span class="theme-note">Neutral greys, the system monospace</span>
+            </label>
+            <label class="theme-card" data-preview="ghostty">
+              <span class="theme-sample" aria-hidden="true"><span class="ts-side"><i class="on"><b class="ts-activity"></b></i><i><b class="ts-waiting"></b></i><i><b class="ts-bell"></b></i><i></i></span><span class="ts-term"><i><b class="ts-dim">~/api</b> $ git st</i><i><b class="ts-ok">M</b> server.go</i><i><b class="ts-ok">M</b> routes.go</i><i><b class="ts-dim">~/api</b> $ <b class="ts-cursor"></b></i></span></span>
+              <span class="theme-name"><input type="radio" name="theme" value="ghostty"> Ghostty</span>
+              <span class="theme-note">Ghostty's own colours, JetBrains Mono</span>
+            </label>
+          </div>
+        </section>
+        <section id="pane-keybar" role="tabpanel" aria-labelledby="tab-keybar" tabindex="-1" hidden>
+          <h3 id="keys-title">Keys under the terminal</h3>
+          <p class="hint">For keys a touch keyboard lacks. Drag <span aria-hidden="true">⠿</span>, or press Alt ↑↓ on a key, to reorder.</p>
+          <div id="keys-preview" aria-hidden="true"></div>
+          <ul id="key-settings" class="settings-list"></ul>
+          <footer class="pane-foot">
+            <span class="hint">The microphone and attach always stay at the end.</span>
+            <button id="keys-reset" type="button" class="quiet">Reset to defaults</button>
+          </footer>
+        </section>
+        <section id="pane-shortcuts" role="tabpanel" aria-labelledby="tab-shortcuts" tabindex="-1" hidden>
+          <h3>Keyboard shortcuts</h3>
+          <p class="hint">Click a shortcut, then press the new keys.<span class="touch-note"> On a touch screen this needs a hardware keyboard.</span></p>
+          <div id="shortcut-settings"></div>
+          <footer class="pane-foot">
+            <span id="shortcuts-changed" class="hint"></span>
+            <button id="shortcuts-reset" type="button" class="quiet">Reset to defaults</button>
+          </footer>
+        </section>
+      </div>
+      <p id="settings-live" class="visually-hidden" aria-live="polite"></p>
     </dialog>
     <button id="undo-close" type="button" hidden>Undo</button>
     <dialog id="hold-menu" aria-label="Agent">

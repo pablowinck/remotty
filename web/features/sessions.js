@@ -145,12 +145,15 @@ export function createSessions({ onSelect, onError, onStatus = () => {}, focusTe
     return [...top, ...folders.flatMap((f) => [...header(f), ...shown(f)]), ...inFolder('')];
   }
 
-  // Alt+1..9 follow the list as shown, top to bottom: collapsing a folder renumbers
-  // the agents below it, and the ones it hides get no key.
-  const hotkeyOrder = () => tree().filter((row) => row.id).slice(0, 9);
+  // naming: ⌘T shows only the agent being named
+  const shownRows = () => (query() || naming ? rows() : tree());
+
+  // Alt+1..9 follow the list as shown, top to bottom: collapsing a folder or
+  // typing in the finder renumbers the agents, and the ones hidden get no key.
+  const hotkeyOrder = () => shownRows().filter((row) => row.id).slice(0, 9);
 
   function render() {
-    const all = query() || naming ? rows() : tree(); // naming: ⌘T shows only the agent being named
+    const all = shownRows();
     highlighted = Math.min(highlighted, Math.max(all.length - 1, 0));
     const searching = document.activeElement === find && (query() !== '' || naming);
     list.replaceChildren(...all.map((row, i) => {

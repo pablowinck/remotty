@@ -213,6 +213,57 @@ test('Alt+1..9 follow the list as shown, and collapsing a folder renumbers the a
   await expect.poll(() => host.capture(id('um'))).toContain('em-um-6');
 });
 
+test('Alt+1..9 follow the filtered list while the finder has text', async ({ page, host }) => {
+  for (const n of ['a-alpha', 'b-beta', 'c-alpha']) host.tmux('new-window', '-d', '-t', '=main:', '-n', n);
+  await pair(page, host);
+  await page.keyboard.press('Control+Shift+K');
+  await page.keyboard.type('alpha');
+  const chips = () => page.locator('#tab-list li[data-id]').evaluateAll((rows) =>
+    rows.map((r) => `${r.querySelector('.name').textContent}=${r.querySelector('.hotkey')?.textContent ?? ''}`));
+  await expect.poll(chips).toEqual(['a-alpha=Alt 1', 'c-alpha=Alt 2']);
+  await page.keyboard.press('Alt+2');
+  await expect(page.locator('#tab-list li[aria-current="true"] .name')).toHaveText('c-alpha');
+});
+
+// The sidebar hides behind the icon next to "remotty". Hidden, the finder's
+// shortcut floats it in the middle of the screen, like Spotlight.
+test.describe('desktop', () => {
+  test.use({ viewport: { width: 1440, height: 900 }, isMobile: false, hasTouch: false });
+  test('a hidden sidebar comes back as a Spotlight-like finder, and stays hidden after a reload', async ({ page, host }) => {
+    await pair(page, host);
+    const tabs = page.locator('#tabs');
+    const opacity = () => tabs.evaluate((e) => Number(getComputedStyle(e).opacity)); // opacity 0 still counts as visible to Playwright
+    await expect(page.locator('#tabs-head')).toContainText('remotty');
+    await page.getByRole('button', { name: 'Hide the agent list' }).click();
+    await expect.poll(async () => (await page.locator('#stage').boundingBox()).width).toBeGreaterThan(1400);
+    await expect.poll(opacity).toBe(0);
+    await page.keyboard.type('echo antes-$((2*4))\n'); // the terminal has the keys, not the hidden button
+    await expect.poll(() => host.capture(host.windows()[0].id)).toContain('antes-8');
+
+    await page.keyboard.press('Control+Shift+K');
+    await expect.poll(opacity).toBe(1);
+    const box = await tabs.boundingBox();
+    expect(Math.abs(box.x + box.width / 2 - 720)).toBeLessThan(2); // centred
+    expect(box.y).toBeGreaterThan(0);
+    expect(box.y).toBeLessThan(900 * 0.35); // a little above the middle
+    await page.keyboard.type('zz-novo');
+    await page.keyboard.press('Enter');
+    await expect.poll(() => host.windows().map((w) => w.name)).toContain('zz-novo');
+    await expect.poll(opacity).toBe(0); // the new agent has the keys, the finder goes
+    await page.keyboard.type('echo pronto-$((3*5))\n');
+    const novo = () => host.windows().find((w) => w.name === 'zz-novo');
+    await expect.poll(() => host.capture(novo().id)).toContain('pronto-15');
+
+    await page.reload();
+    await expect(page.locator('#tab-list li[data-id]')).toHaveCount(2); // anchor: the app is up
+    await expect.poll(opacity).toBe(0);
+    await page.getByRole('button', { name: 'Agents' }).click();
+    await expect.poll(opacity).toBe(1);
+    await expect(page.locator('#tabs-head')).toBeVisible();
+    await expect.poll(async () => (await page.locator('#stage').boundingBox()).width).toBeLessThan(1300);
+  });
+});
+
 test("a folder's ⋯ creates an agent inside it and opens it", async ({ page, host }) => {
   host.tmux('set-option', '-t', '=main:', '@remotty-folders', 'billing');
   await pair(page, host);

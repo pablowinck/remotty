@@ -2,7 +2,7 @@
 import { api, Unauthorized } from './features/api.js';
 import { showPairing } from './features/access.js';
 import { createSessions } from './features/sessions.js';
-import { wireDrawer, wireSidebar } from './features/sidebar.js';
+import { wireDrawer, wireSidebar, wireSidebarToggle } from './features/sidebar.js';
 import { savedTheme, wireSettings } from './features/settings.js';
 import { createTerminal, keyLabel, shortcutOf } from './features/terminal.js';
 
@@ -44,6 +44,7 @@ async function main() {
   document.getElementById('app').hidden = false;
   followVisualViewport();
   wireSidebar();
+  wireSidebarToggle({ onHide: () => terminal.focus() });
   const drawer = wireDrawer();
   document.querySelectorAll('#app kbd').forEach((k) => (k.textContent = keyLabel(k.textContent)));
   // App shortcuts. The terminal is told which keys are ours so it never sends

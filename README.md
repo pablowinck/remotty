@@ -80,8 +80,8 @@ remotty revoke ID   # unpair; its open terminals close within a second
   bell, amber means the window has been silent for a while (an agent waiting on
   you, if you set `monitor-silence` in tmux), blue is fresh output.
 - **Keyboard first.** `Alt+1`…`Alt+9` open the first nine agents as the list
-  shows them, top to bottom (each tab shows its chip; collapsing a folder
-  renumbers the ones below), `Alt+↓` / `Alt+↑` go to the next or previous one. `Ctrl+Shift+K`
+  shows them, top to bottom (each tab shows its chip; collapsing a folder or
+  typing in the finder renumbers them), `Alt+↓` / `Alt+↑` go to the next or previous one. `Ctrl+Shift+K`
   opens the finder above the list: type to filter by name (or a window
   number), arrows to move, `Enter` to open, and you are typing in that agent.
   None of these keys ever reach the shell. On a Mac, iPad or iPhone keyboard,
@@ -91,6 +91,11 @@ remotty revoke ID   # unpair; its open terminals close within a second
   closed, still running, for 5 minutes. If nothing is named exactly that, the last row
   creates a new agent with the name you typed; `Enter` on an empty finder
   creates an unnamed one. `Esc` goes back to the terminal.
+- On a wide screen the icon next to "remotty" hides the list and the terminal
+  takes the whole width; the same icon, top left, brings it back. With the list
+  hidden, `Ctrl+Shift+K` (or ⌘T) floats the finder in the middle of the screen,
+  like Spotlight: the same search, create, folders and `Alt+N` chips, gone again
+  once you open an agent or press `Esc`.
 - Double-click a tab to rename it. Its `⋯` menu renames it (the way on a phone, where a tap
   opens the agent), closes it, moves it to a folder, pins it (pinned agents sit
   under `Pinned`, above every folder, on every device; `Unpin` puts them back in their folder), or

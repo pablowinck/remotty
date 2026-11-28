@@ -54,6 +54,31 @@ export function wireDrawer() {
   return { open: () => set(true), close: () => set(false) };
 }
 
+// Wide screens only: the icon by "remotty" hides the list and the terminal takes
+// the width. Hidden, the list floats in the middle while its finder has focus
+// (style.css, :focus-within), so the finder's shortcut opens it like Spotlight
+// and opening an agent puts it away. The top bar's button brings the list back.
+const HIDDEN_KEY = 'remotty.sidebar-closed';
+const WIDE = '(orientation: landscape) and (min-width: 701px)'; // the opposite of style.css's drawer query
+
+export function wireSidebarToggle({ onHide }) {
+  const set = (on) => {
+    document.body.classList.toggle('sidebar-closed', on);
+    try { localStorage.setItem(HIDDEN_KEY, on ? '1' : ''); } catch {}
+  };
+  try { set(localStorage.getItem(HIDDEN_KEY) === '1'); } catch {}
+  document.getElementById('tabs-close').addEventListener('click', () => {
+    set(true);
+    onHide(); // the focus would stay in the list and float it right back
+  });
+  // Registered before wireDrawer: wide, this button is no drawer toggle.
+  document.getElementById('menu').addEventListener('click', (e) => {
+    if (!matchMedia(WIDE).matches || !document.body.classList.contains('sidebar-closed')) return;
+    e.stopImmediatePropagation();
+    set(false);
+  });
+}
+
 // The width at which no name is cut: each row keeps its chips and padding, and
 // its name gets the width of its whole text. A Range measures the text even
 // where the ellipsis hides it.

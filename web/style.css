@@ -65,13 +65,14 @@ button:disabled { opacity: .5; cursor: default; }
 button:focus-visible, input:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
 
 /* Icons are masks, so they take the colour of the text around them. */
-.icon-plus::before, .icon-restore::before, .icon-settings::before, #menu::before, #tab-list li.folder::after {
+.icon-plus::before, .icon-restore::before, .icon-settings::before, .icon-sidebar::before, #menu::before, #tab-list li.folder::after {
   content: ""; flex: none; width: 1.1rem; height: 1.1rem; background: currentColor;
   -webkit-mask: var(--icon) no-repeat center / contain; mask: var(--icon) no-repeat center / contain;
 }
 .icon-plus { --icon: url(/plus.svg); }
 .icon-restore { --icon: url(/restore.svg); }
 .icon-settings { --icon: url(/settings.svg); }
+.icon-sidebar { --icon: url(/sidebar.svg); }
 
 /* Pairing */
 #pair { display: grid; place-items: center; min-height: 100%; padding: 1rem; }
@@ -95,7 +96,9 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--focus); out
 #topbar, #scrim { display: none; }
 
 #tabs { grid-area: tabs; display: flex; flex-direction: column; background: var(--panel); border-right: 1px solid var(--line); min-height: 0; position: relative; padding: .4rem .3rem; gap: .15rem; }
-#tabs-head { font-weight: 600; font-size: 1.05rem; padding: .4rem .6rem .5rem; }
+#tabs-head { display: flex; align-items: center; justify-content: space-between; font-weight: 600; font-size: 1.05rem; padding: .4rem .3rem .5rem .6rem; }
+#tabs-close { display: grid; place-items: center; padding: .3rem; background: none; color: var(--muted); }
+#tabs-close:hover { background: var(--hover); color: var(--text); }
 /* Sidebar rows that are actions, not agents: icon, label, no box. */
 .row-button { display: flex; align-items: center; gap: .6rem; width: 100%; text-align: left; background: none; padding: .5rem .6rem; color: var(--text); }
 .row-button:hover:not(:disabled) { background: var(--hover); }
@@ -261,7 +264,7 @@ kbd {
   body.drawer-open #tabs { transform: none; visibility: visible; transition: transform .2s ease-out; }
   #scrim { display: block; position: fixed; inset: 0; z-index: 3; background: #000a; opacity: 0; pointer-events: none; transition: opacity .2s; }
   body.drawer-open #scrim { opacity: 1; pointer-events: auto; }
-  #find-key, #tab-list .hotkey, #tabs-resize { display: none; }
+  #find-key, #tab-list .hotkey, #tabs-resize, #tabs-close { display: none; }
   #find { padding-right: .6rem; }
   /* Finger-sized rows. */
   #tab-list li, .row-button { min-height: 3rem; }
@@ -285,6 +288,37 @@ kbd {
   #restore-dialog footer { padding-bottom: calc(.7rem + env(safe-area-inset-bottom)); }
   #restore-dialog footer button { flex: 1; min-height: 2.75rem; }
 }
+/* Wide, with the list hidden (sidebar.js): the terminal takes the width under a
+   slim bar whose icon brings the list back. The list itself floats in the middle,
+   a little above it, while its finder has focus, like Spotlight. Transparent, not
+   hidden, so Ctrl+Shift+K can still focus the finder; leaving it puts it away. */
+@media (orientation: landscape) and (min-width: 701px) {
+  body.sidebar-closed #app { grid-template: "top" auto "stage" minmax(0, 1fr) "keys" auto / minmax(0, 1fr); }
+  body.sidebar-closed #topbar { grid-area: top; display: flex; align-items: center; justify-content: space-between; padding: .15rem .4rem; border-bottom: 1px solid var(--line); min-width: 0; }
+  body.sidebar-closed #menu { --icon: url(/sidebar.svg); display: flex; align-items: center; gap: .55rem; min-width: 0; padding: .3rem .5rem; background: none; color: var(--muted); font-size: .9rem; }
+  body.sidebar-closed #menu:hover { background: var(--hover); color: var(--text); }
+  body.sidebar-closed #top-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; color: var(--text); }
+  body.sidebar-closed #top-new { display: grid; place-items: center; padding: .35rem; background: none; color: var(--muted); }
+  body.sidebar-closed #top-new:hover { background: var(--hover); color: var(--text); }
+
+  body.sidebar-closed #tabs {
+    position: fixed; z-index: 6; top: 20vh; left: 50%; translate: -50% 0;
+    width: min(40rem, calc(100% - 2rem)); max-height: min(28rem, 60vh); padding: .45rem;
+    background: color-mix(in srgb, var(--panel) 80%, transparent); -webkit-backdrop-filter: blur(28px) saturate(1.8); backdrop-filter: blur(28px) saturate(1.8);
+    border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 30px 80px #0009, 0 0 0 .5px #ffffff14 inset;
+    opacity: 0; scale: .98; pointer-events: none; transition: opacity .12s ease-out, scale .12s ease-out;
+  }
+  body.sidebar-closed #tabs:focus-within { opacity: 1; scale: 1; pointer-events: auto; }
+  body.sidebar-closed :is(#tabs-head, #tabs-foot, #tabs-resize, #find-key) { display: none; }
+  body.sidebar-closed #find-box { padding-bottom: .45rem; margin-bottom: .15rem; border-bottom: 1px solid var(--line); }
+  body.sidebar-closed #find { font-size: 1.3rem; padding: .55rem .7rem .55rem 2.6rem; background-color: transparent; background-size: 1.2rem; background-position: .75rem 50%; border: 0; }
+  body.sidebar-closed #find:focus-visible { outline: none; }
+  body.sidebar-closed #tab-list { flex: 0 1 auto; }
+  /* The keyboard's row in macOS blue, as Spotlight marks it. */
+  body.sidebar-closed #tab-list li.highlighted { outline: none; background: #3b82f6; color: #fff; }
+  body.sidebar-closed #tab-list li.highlighted :is(.index, .more, .hotkey) { color: #ffffffd9; }
+  body.sidebar-closed #tab-list li.highlighted .hotkey { opacity: 1; background: #ffffff2e; border-color: transparent; }
+}
 @media (prefers-reduced-motion: reduce) { #tabs, #scrim { transition: none !important; } }
 
 /* Installed as an app (manifest display_override): the page draws its own title
@@ -305,7 +339,11 @@ kbd {
   #top-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
   #tabs { padding-top: 0; }
   #tabs-head { display: flex; align-items: center; height: env(titlebar-area-height, 2.25rem); padding-block: 0; -webkit-app-region: drag; app-region: drag; }
-  #tabs-resize { -webkit-app-region: no-drag; app-region: no-drag; }
+  #tabs-resize, #tabs-close { -webkit-app-region: no-drag; app-region: no-drag; }
+  /* List hidden: the title bar spans the window and its icon brings the list back. */
+  body.sidebar-closed #app { grid-template: "top" env(titlebar-area-height, 2.25rem) "stage" 1fr "keys" auto / minmax(0, 1fr); }
+  body.sidebar-closed #topbar #menu { pointer-events: auto; -webkit-app-region: no-drag; app-region: no-drag; }
+  body.sidebar-closed #menu::before { display: block; }
 }
 
 /* iOS zooms the page into any focused field with text under 16px, and stays
